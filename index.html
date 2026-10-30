@@ -109,28 +109,21 @@
 
   /* 뺏기 확인 : 상대 칸을 누르면 큰 글씨로 비용 */
   #stealSheet {
-    position: fixed; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 15;
+    position: fixed; left: 10px; right: 10px; top: calc(6px + env(safe-area-inset-top)); z-index: 15; pointer-events: none;
     max-width: 370px; margin: 0 auto;
     background: #2E363E; border: 3px solid #FF5A4E; border-radius: 16px; padding: 12px 14px;
     text-align: center; box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
     animation: sheetIn .2s ease-out;
   }
   #stealSheet.hide { display: none; }
-  @keyframes sheetIn { from { transform: translateY(30px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes sheetIn { from { transform: translateY(-20px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
   #stealSheet .who { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center; gap: 6px; }
   #stealSheet .big { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 52px; line-height: 1.05; color: #FFE27A; margin-top: 4px; }
   #stealSheet .big.poor { color: #FF8A80; }
   #stealSheet .how { font-family: 'IBM Plex Mono', monospace; font-size: 12px; opacity: .75; }
   #stealSheet .after { font-size: 14px; margin-top: 4px; }
   #stealSheet .after b { font-family: 'IBM Plex Mono', monospace; }
-  #stealSheet .btns { display: flex; gap: 8px; margin-top: 10px; }
-  #stealSheet button {
-    flex: 1; height: 52px; border: none; border-radius: 10px;
-    font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 18px;
-    background: var(--panel); color: var(--fg);
-  }
-  #stealSheet #bStealYes { background: #FF5A4E; color: #fff; }
-  #stealSheet button:disabled { opacity: .35; }
+  #stealSheet .tip { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 14px; color: #FF8A80; margin-top: 6px; }
   #actions button:disabled { opacity: .35; }
   #actions button:active:not(:disabled) { transform: scale(.96); }
 
@@ -201,10 +194,7 @@
   <div class="big" id="shCost"></div>
   <div class="how" id="shHow"></div>
   <div class="after" id="shAfter"></div>
-  <div class="btns">
-    <button id="bStealNo">취소</button>
-    <button id="bStealYes">뺏기</button>
-  </div>
+  <div class="tip" id="shTip"></div>
 </div>
 
 <div id="pick" class="cover">
@@ -620,6 +610,9 @@
     }
   }
 
+  // 판 밖을 누르면 뺏기 창 닫힘
+  document.addEventListener('pointerup', e => { if (!board.contains(e.target)) closeSteal(); });
+
   // 판 탭 : 인접 빈칸이면 뻗기
   board.addEventListener('pointerup', e => {
     const t = e.target;
@@ -651,7 +644,7 @@
     $('shAfter').innerHTML = ok
       ? `자금 <b>${me.cash}</b> → <b>${me.cash - cost}</b>`
       : `자금 <b>${me.cash}</b>, <b>${cost - me.cash}</b> 모자람`;
-    $('bStealYes').disabled = !ok;
+    $('shTip').textContent = ok ? '같은 칸을 한 번 더 누르면 뺏기' : '다른 곳을 누르면 닫힘';
     $('stealSheet').classList.remove('hide');
     // 다시 열 때도 등장 연출
     const sh = $('stealSheet'); sh.style.animation = 'none'; void sh.offsetWidth; sh.style.animation = '';
@@ -679,8 +672,7 @@
     endTurn(fx);
   }
 
-  $('bStealYes').addEventListener('click', doSteal);
-  $('bStealNo').addEventListener('click', closeSteal);
+
 
   const canAct = () => S.co[ME] && S.co[ME].alive && !S.over;
   $('bPass').addEventListener('click', () => { if (canAct()) { closeSteal(); endTurn(); } });
