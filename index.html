@@ -515,7 +515,7 @@
     b.classList.add('shake');
   }
 
-  // ② 경쟁사 자동 확장 : 인접 빈칸 중 무작위. 칸 수 bigAt 이상이면 growBig칸. 유형 속도 계수를 누적.
+  // ② 경쟁사 자동 확장 : 인접 빈칸 중 무작위. 유형 속도 계수를 누적.
   // 경쟁사 뺏기 : 자금이 있으면 rivalStealChance 확률로 맞닿은 이웃 중 가장 작은 회사의 칸 1개
   function rivalsSteal(fx) {
     for (const co of S.co) {
@@ -541,8 +541,7 @@
   function rivalsGrow(pop) {
     for (const co of S.co) {
       if (co.id === ME || !co.alive) continue;
-      const base = sizeOf(co.id) >= C.rivals.bigAt ? C.rivals.growBig : C.rivals.growBase;
-      co.acc += base * co.type.speed;
+      co.acc += C.rivals.growBase * co.type.speed;
       while (co.acc >= 1) {
         co.acc -= 1;
         const f = [...frontier(co.id)];
