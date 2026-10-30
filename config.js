@@ -35,6 +35,15 @@ window.CONFIG = {
     absorbPerTurn: 1  // 한 회사가 한 턴에 흡수할 수 있는 횟수 (연쇄 흡수로 판이 한 번에 끝나는 것 방지)
   },
 
+  // 돈 : 매출 = 칸 수 × 유형 매출 단가 (시장 칸 보너스는 5단계)
+  economy: {
+    startCash: 50,          // 창업 때 지갑
+    stealPerCell: 10,       // 뺏기 비용 = 상대 칸 수 × 이 값 × 상대 유형 저항
+    guardPerCell: 5,        // 방어 비용 = 내 칸 수 × 이 값
+    resist: { '낮음': 0.8, '보통': 1.0, '높음': 1.3 },
+    rivalStealChance: 0.2   // 경쟁사가 자금이 있을 때 가장 약한 이웃 칸 1개를 뺏을 확률
+  },
+
   // 기존 세력 (산업용 팔)
   legacy: { name: '대공장', tile: 'iarm' }
 };

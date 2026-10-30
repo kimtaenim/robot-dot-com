@@ -33,8 +33,9 @@
   #hud { flex: none; text-align: center; padding: 8px 12px 4px; }
   #title { font-family: 'Rye', serif; font-size: 26px; letter-spacing: 1px; line-height: 1.1; }
   #subtitle { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 14px; opacity: .85; margin-top: 2px; }
-  #stats { display: flex; justify-content: center; gap: 10px; margin-top: 8px; font-size: 14px; align-items: center; }
-  .stat { background: var(--panel); border-radius: 8px; padding: 4px 10px; display: flex; gap: 6px; align-items: baseline; }
+  #stats { display: flex; justify-content: center; gap: 6px; margin-top: 8px; font-size: 14px; align-items: center; }
+  .stat { background: var(--panel); border-radius: 8px; padding: 4px 8px; display: flex; gap: 6px; align-items: baseline; }
+  .stat i { font-style: normal; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #FFE27A; }
   .stat b { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 16px; }
   .chip { width: 10px; height: 10px; border-radius: 3px; display: inline-block; align-self: center; flex: none; }
   #legend { display: flex; justify-content: center; gap: 8px; margin-top: 7px; font-size: 11.5px; white-space: nowrap; height: 16px; }
@@ -52,6 +53,17 @@
   .hex { stroke: var(--empty-line); stroke-width: 1.5; fill: var(--empty); transition: fill .3s; transform-box: fill-box; transform-origin: center; }
   .hex.reach { fill: #8996A2; stroke: var(--me); stroke-dasharray: 4 3; cursor: pointer; }
   .hex.own { stroke: rgba(0,0,0,.25); }
+  .hex.target { stroke: #FF5A4E; stroke-width: 2.5; stroke-dasharray: 5 3; cursor: pointer; filter: brightness(1.15); }
+  .hex.guard { animation: guard .7s ease-out; stroke: #F2F5F7; stroke-width: 3; }
+  @keyframes guard { 0% { transform: scale(1); } 40% { transform: scale(.9); } 100% { transform: scale(1); } }
+  .cost { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 12px; fill: #fff; paint-order: stroke; stroke: #2A2F35; stroke-width: 3px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .float {
+    position: absolute; z-index: 5; pointer-events: none; transform: translate(-50%, -50%);
+    font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 16px; color: #FFE27A;
+    text-shadow: 0 1px 0 #2A2F35, 0 0 4px #2A2F35; animation: floatUp 1.1s ease-out forwards;
+  }
+  .float.minus { color: #FF8A80; }
+  @keyframes floatUp { to { transform: translate(-50%, -46px); opacity: 0; } }
   .hex.pop { animation: pop .35s ease-out; }
   .hex.wave { animation: pop .4s ease-out both; }
   .hex.touch { animation: touch .45s ease-in-out; }
@@ -93,6 +105,7 @@
   }
   #actions button small { font-family: 'Gowun Dodum', sans-serif; font-weight: 400; font-size: 10px; opacity: .75; }
   #actions button.on { background: var(--me); color: #2A2F35; }
+  #actions button.on.steal { background: #FF5A4E; color: #fff; }
   #actions button:disabled { opacity: .35; }
   #actions button:active:not(:disabled) { transform: scale(.96); }
 
@@ -137,6 +150,7 @@
   <div id="stats">
     <div class="stat"><span>턴</span><b id="sTurn">0</b></div>
     <div class="stat"><span>칸</span><b id="sCells">0</b></div>
+    <div class="stat"><span>자금</span><b id="sCash">0</b><i id="sIncome"></i></div>
     <div class="stat"><span class="chip" id="sChip"></span><span id="sType">-</span></div>
   </div>
   <div id="legend"></div>
@@ -151,8 +165,8 @@
 
 <div id="actions">
   <button id="bGrow" class="on">뻗기<small>밝은 칸 탭</small></button>
-  <button id="bSteal" disabled>뺏기<small>3단계</small></button>
-  <button id="bGuard" disabled>방어<small>3단계</small></button>
+  <button id="bSteal">뺏기<small id="bStealCost">붉은 칸 탭</small></button>
+  <button id="bGuard">방어<small id="bGuardCost">-0</small></button>
   <button id="bPass">패스<small>턴 넘김</small></button>
   <button id="bNew">새 판<small>처음부터</small></button>
 </div>
@@ -193,7 +207,10 @@
     co: [],
     turn: 0,
     touching: new Set(),
-    over: false
+    over: false,
+    mode: 'grow',     // 'grow' 뻗기 | 'steal' 뺏기
+    guard: false      // 이번 턴 내 칸 보호
+
   };
 
   // 좌표 (홀수 줄이 반 칸 오른쪽으로 밀린 odd-r 배치)
@@ -237,6 +254,24 @@
     return false;
   }
 
+  // 뺏기 비용 = 상대 칸 수 × stealPerCell × 상대 유형 저항
+  const stealCost = id => Math.round(sizeOf(id) * C.economy.stealPerCell * C.economy.resist[S.co[id].type.resist]);
+  const guardCost = () => sizeOf(ME) * C.economy.guardPerCell;
+
+  // 뺏을 수 있는 칸 : 내 영토에 붙은 상대 칸. 본사는 그 회사의 마지막 칸일 때만. 방어 중인 내 칸은 불가.
+  function stealable(by, onlyFrom) {
+    const out = [];
+    for (let i = 0; i < N; i++) {
+      const o = S.owner[i];
+      if (o < 0 || o === by) continue;
+      if (onlyFrom !== undefined && o !== onlyFrom) continue;
+      if (o === ME && S.guard) continue;
+      if (i === S.co[o].hq && sizeOf(o) > 1) continue;
+      if (NB[i].some(n => S.owner[n] === by)) out.push(i);
+    }
+    return out;
+  }
+
   // 칸 크기 : 남은 공간에 맞춰 계산 (가로 = 칸 6개 + 반 칸, 세로 = R × (1.5 × 줄 + 0.5))
   let W = 56, R = W / SQ3;
   function layout() {
@@ -274,7 +309,7 @@
     `<img src="assets/tile-${tile}-a.png" alt=""><img class="b" src="assets/tile-${tile}-b.png" alt=""></span>`;
 
   // 판 그리기
-  let hexEls = [];
+  let hexEls = [], costEls = [];
   const hqEls = {};
   function buildBoard() {
     layout();
@@ -290,6 +325,17 @@
       board.appendChild(p);
       hexEls.push(p);
     }
+    costEls = [];
+    for (let i = 0; i < N; i++) {
+      const [x, y] = center(i);
+      const t = document.createElementNS(SVGNS, 'text');
+      t.setAttribute('class', 'cost');
+      t.setAttribute('x', x);
+      t.setAttribute('y', y);
+      t.style.display = 'none';
+      board.appendChild(t);
+      costEls.push(t);
+    }
     $('hqLayer').innerHTML = '';
     for (const k in hqEls) delete hqEls[k];
     paint();
@@ -297,12 +343,21 @@
 
   // fx : { pop: Set, wave: Map(칸 → 지연 ms), touch: Set }
   function paint(fx = {}) {
-    const reach = (S.co[ME] && S.co[ME].alive && !S.over) ? frontier(ME) : new Set();
+    const live = S.co[ME] && S.co[ME].alive && !S.over;
+    const reach = (live && S.mode === 'grow') ? frontier(ME) : new Set();
+    const targets = new Set();
+    if (live && S.mode === 'steal') {
+      for (const i of stealable(ME)) if (stealCost(S.owner[i]) <= S.co[ME].cash) targets.add(i);
+    }
     for (let i = 0; i < N; i++) {
       const el = hexEls[i], o = S.owner[i];
       let cls = 'hex';
       if (o >= 0) cls += ' own';
       else if (reach.has(i)) cls += ' reach';
+      if (targets.has(i)) cls += ' target';
+      const ce = costEls[i];
+      if (targets.has(i)) { ce.textContent = stealCost(o); ce.style.display = ''; }
+      else ce.style.display = 'none';
       el.setAttribute('class', cls);
       el.style.fill = o >= 0 ? S.co[o].color : '';
       el.style.transitionDelay = '';
@@ -312,6 +367,7 @@
     if (fx.pop) for (const i of fx.pop) anim.push([i, 'pop', 0]);
     if (fx.touch) for (const i of fx.touch) anim.push([i, 'touch', 0]);
     if (fx.wave) for (const [i, d] of fx.wave) anim.push([i, 'wave', d]);
+    if (fx.guard) for (const i of cellsOf(ME)) anim.push([i, 'guard', 0]);
     if (anim.length) {
       // 같은 연출을 다시 틀 수 있게 한 번 끊고 붙임
       void board.getBoundingClientRect();
@@ -355,6 +411,13 @@
     $('sTurn').textContent = S.turn;
     $('sCells').textContent = me ? sizeOf(ME) : 0;
     $('sType').textContent = me ? me.type.name : '-';
+    $('sCash').textContent = me ? me.cash : 0;
+    $('sIncome').textContent = me && me.alive ? '+' + sizeOf(ME) * me.type.price : '';
+    $('bGuardCost').textContent = me ? '-' + guardCost() : '-0';
+    $('bGrow').classList.toggle('on', S.mode === 'grow');
+    $('bSteal').classList.toggle('on', S.mode === 'steal');
+    $('bSteal').classList.toggle('steal', S.mode === 'steal');
+    $('bGuard').disabled = !me || !me.alive || S.over || me.cash < guardCost();
     $('legend').innerHTML = S.co.map(co =>
       `<span class="${co.alive ? '' : 'dead'} ${co.id === ME ? 'me' : ''}">` +
       `<i class="chip" style="background:${co.color}"></i>${co.name} <b>${co.alive ? sizeOf(co.id) : 0}</b></span>`
@@ -372,6 +435,17 @@
     bannerT = setTimeout(() => b.classList.remove('show'), 1700);
   }
 
+  function floatAt(cell, text, minus) {
+    const [x, y] = center(cell);
+    const f = document.createElement('div');
+    f.className = 'float' + (minus ? ' minus' : '');
+    f.textContent = text;
+    f.style.left = x + 'px';
+    f.style.top = (y - R * 0.6) + 'px';
+    $('boardBox').appendChild(f);
+    setTimeout(() => f.remove(), 1200);
+  }
+
   function shake() {
     const b = $('boardBox');
     b.classList.remove('shake');
@@ -380,6 +454,28 @@
   }
 
   // ② 경쟁사 자동 확장 : 인접 빈칸 중 무작위. 칸 수 bigAt 이상이면 growBig칸. 유형 속도 계수를 누적.
+  // 경쟁사 뺏기 : 자금이 있으면 rivalStealChance 확률로 맞닿은 이웃 중 가장 작은 회사의 칸 1개
+  function rivalsSteal(fx) {
+    for (const co of S.co) {
+      if (co.id === ME || !co.alive || Math.random() >= C.economy.rivalStealChance) continue;
+      const nbs = S.co.filter(o => o.alive && o.id !== co.id && touches(co.id, o.id) && stealable(co.id, o.id).length);
+      if (!nbs.length) continue;
+      const weak = nbs.reduce((a, b) => sizeOf(b.id) < sizeOf(a.id) ? b : a);
+      const cost = stealCost(weak.id);
+      if (co.cash < cost) continue;
+      const i = pick(stealable(co.id, weak.id));
+      co.cash -= cost;
+      takeCell(co, weak, i, fx);
+    }
+  }
+
+  function takeCell(by, from, i, fx) {
+    S.owner[i] = by.id;
+    fx.touch.add(i);
+    fx.stolen.push([by, from, i]);
+    if (sizeOf(from.id) === 0) { from.alive = false; fx.closed.push(from); }
+  }
+
   function rivalsGrow(pop) {
     for (const co of S.co) {
       if (co.id === ME || !co.alive) continue;
@@ -449,29 +545,59 @@
       fx.pop.delete(i);
     }
     small.alive = false;
+    big.cash += small.cash;
+    small.cash = 0;
     fx.absorbed.push([big, small]);
   }
 
-  function endTurn(myPop) {
+  // 한 턴 : ① 내 행동(호출 전에 끝남) ② 경쟁사 뺏기·확장 ③ 접촉 판정 ④ 매출 정산
+  function endTurn(fx) {
     if (S.over) return;
     S.turn++;
-    const fx = { pop: new Set(myPop !== undefined ? [myPop] : []), wave: new Map(), touch: new Set(), absorbed: [] };
+    fx = Object.assign({ pop: new Set(), wave: new Map(), touch: new Set(), absorbed: [], stolen: [], closed: [] }, fx);
+    rivalsSteal(fx);
     rivalsGrow(fx.pop);
     contacts(fx);
+
+    // ④ 매출 : 칸 수 × 유형 단가
+    let myIncome = 0;
+    for (const co of S.co) {
+      if (!co.alive) continue;
+      const inc = sizeOf(co.id) * co.type.price;
+      co.cash += inc;
+      if (co.id === ME) myIncome = inc;
+    }
+    S.guard = false;
+    S.mode = 'grow';
     paint(fx);
 
-    if (fx.absorbed.length || fx.newTouch) shake();
+    const me = S.co[ME];
+    if (me.alive && myIncome) floatAt(me.hq, '+' + myIncome);
+    if (fx.absorbed.length || fx.newTouch || fx.stolen.some(([b, f]) => b.id === ME || f.id === ME)) shake();
+
+    // 알림 : 흡수 > 나와 관련된 뺏기 > 폐업
+    const lost = fx.stolen.filter(([, f]) => f.id === ME);
+    const won = fx.stolen.filter(([b]) => b.id === ME);
     if (fx.absorbed.length) {
       const [big, small] = fx.absorbed[fx.absorbed.length - 1];
       banner(`${big.name}, ${small.name} 흡수`);
+    } else if (lost.length) {
+      banner(`${lost[0][0].name}에 칸을 뺏겼다`);
+    } else if (won.length) {
+      banner(`${won[0][1].name}의 칸을 뺏었다`);
+    } else if (fx.closed.length) {
+      banner(`${fx.closed[0].name} 폐업`);
+    } else if (fx.guard) {
+      banner('방어 : 이번 턴 뺏기지 않음');
     }
-    if (!S.co[ME].alive) {
-      // 매각 수락/거절은 4단계에서. 지금은 흡수되면 판이 끝남.
+
+    if (!me.alive) {
+      // 매각 수락/거절·재창업은 4단계에서. 지금은 흡수되거나 전부 뺏기면 판이 끝남.
       S.over = true;
-      const eater = fx.absorbed.find(([, s]) => s.id === ME)[0];
+      const eaten = fx.absorbed.find(([, s]) => s.id === ME);
       setTimeout(() => {
-        $('overTitle').textContent = '흡수당했다';
-        $('overText').textContent = `${eater.name}에 통째로 먹혔다. 턴 ${S.turn}`;
+        $('overTitle').textContent = eaten ? '흡수당했다' : '폐업';
+        $('overText').textContent = (eaten ? `${eaten[0].name}에 통째로 먹혔다.` : '칸을 전부 뺏겼다.') + ` 턴 ${S.turn}`;
         $('over').classList.remove('hide');
       }, 1400);
     }
@@ -482,12 +608,48 @@
     const t = e.target;
     if (S.over || !S.co[ME] || !t.dataset || t.dataset.i === undefined) return;
     const i = +t.dataset.i;
+    const me = S.co[ME];
+    if (S.mode === 'steal') {
+      const o = S.owner[i];
+      if (o < 0 || !stealable(ME).includes(i)) return;
+      const cost = stealCost(o);
+      if (me.cash < cost) return;
+      me.cash -= cost;
+      const fx = { touch: new Set(), stolen: [], closed: [] };
+      takeCell(me, S.co[o], i, fx);
+      floatAt(i, '-' + cost, true);
+      endTurn(fx);
+      return;
+    }
     if (S.owner[i] !== EMPTY || !frontier(ME).has(i)) return;
     S.owner[i] = ME;
-    endTurn(i);
+    endTurn({ pop: new Set([i]) });
   });
 
-  $('bPass').addEventListener('click', () => { if (S.co[ME] && !S.over) endTurn(); });
+  const canAct = () => S.co[ME] && S.co[ME].alive && !S.over;
+  $('bPass').addEventListener('click', () => { if (canAct()) endTurn(); });
+  $('bGrow').addEventListener('click', () => { if (canAct()) { S.mode = 'grow'; paint(); } });
+  $('bSteal').addEventListener('click', () => {
+    if (!canAct()) return;
+    if (S.mode === 'steal') { S.mode = 'grow'; paint(); return; }
+    const me = S.co[ME];
+    const any = stealable(ME).some(i => stealCost(S.owner[i]) <= me.cash);
+    if (!any) {
+      banner(stealable(ME).length ? '자금이 모자란다' : '맞닿은 상대 칸이 없다');
+      return;
+    }
+    S.mode = 'steal';
+    paint();
+  });
+  $('bGuard').addEventListener('click', () => {
+    if (!canAct()) return;
+    const me = S.co[ME], cost = guardCost();
+    if (me.cash < cost) return;
+    me.cash -= cost;
+    S.guard = true;
+    floatAt(me.hq, '-' + cost, true);
+    endTurn({ guard: true });
+  });
   $('bNew').addEventListener('click', () => {
     if (S.turn > 0 && !S.over && !confirm('지금 판을 버리고 새로 시작할까?')) return;
     newGame();
@@ -513,7 +675,7 @@
     }
     const seed = pick(cand);
     S.owner[seed] = ME;
-    S.co = [{ id: ME, name: '나', type, color: C.companyColors[0], hq: seed, alive: true, acc: 0 }];
+    S.co = [{ id: ME, name: '나', type, color: C.companyColors[0], hq: seed, alive: true, acc: 0, cash: C.economy.startCash }];
 
     const names = shuffle([...C.rivals.names]);
     const seeds = [seed];
@@ -521,7 +683,7 @@
       const s = seedFar(seeds);
       seeds.push(s);
       S.owner[s] = k;
-      S.co.push({ id: k, name: names[k - 1], type: pick(C.types), color: C.companyColors[k], hq: s, alive: true, acc: 0 });
+      S.co.push({ id: k, name: names[k - 1], type: pick(C.types), color: C.companyColors[k], hq: s, alive: true, acc: 0, cash: C.economy.startCash });
     }
     $('pick').classList.add('hide');
     paint({ pop: new Set(seeds) });
@@ -529,7 +691,7 @@
 
   function newGame() {
     S.owner.fill(EMPTY);
-    S.co = []; S.turn = 0; S.touching = new Set(); S.over = false;
+    S.co = []; S.turn = 0; S.touching = new Set(); S.over = false; S.mode = 'grow'; S.guard = false;
     buildBoard();
     $('over').classList.add('hide');
     $('pick').classList.remove('hide');
