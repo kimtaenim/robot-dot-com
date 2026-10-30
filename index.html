@@ -43,6 +43,10 @@
   #legend b { font-family: 'IBM Plex Mono', monospace; font-weight: 700; }
   #legend .dead { opacity: .35; text-decoration: line-through; }
   #legend .me { font-weight: 700; }
+  #legend .threat { color: #FF8A80; animation: urgent .6s ease-in-out infinite alternate; }
+  @keyframes urgent { from { opacity: 1; } to { opacity: .45; } }
+  #actions button.alert { background: #C9443A; animation: alertPulse .6s ease-in-out infinite alternate; }
+  @keyframes alertPulse { from { box-shadow: 0 0 0 0 rgba(255, 90, 78, .0); } to { box-shadow: 0 0 0 4px rgba(255, 90, 78, .55); } }
 
   /* 판 */
   #boardWrap { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
@@ -52,6 +56,8 @@
   #board { display: block; overflow: visible; }
   .hex { stroke: var(--empty-line); stroke-width: 1.5; fill: var(--empty); transition: fill .3s; transform-box: fill-box; transform-origin: center; }
   .hex.reach { fill: #8996A2; stroke: var(--me); stroke-dasharray: 4 3; cursor: pointer; }
+  .hex.reach.danger { fill: #9A6F6C; stroke: #FF5A4E; }
+  .warn { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 18px; fill: #FFD0CC; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
   .hex.own { stroke: rgba(0,0,0,.25); }
   .hex.target { stroke: #FF5A4E; stroke-width: 2.5; stroke-dasharray: 5 3; cursor: pointer; }
   .hex.target.poor { stroke: rgba(255, 90, 78, .45); }
@@ -233,7 +239,8 @@
     touching: new Set(),
     over: false,
     sel: -1,          // 뺏으려고 고른 상대 칸
-    guard: false      // 이번 턴 내 칸 보호
+    guard: false,     // 이번 턴 내 칸 보호
+    guardStreak: 0    // 연속 방어 횟수 (연속이면 비용이 배로)
 
   };
 
@@ -280,7 +287,7 @@
 
   // 뺏기 비용 = 상대 칸 수 × stealPerCell × 상대 유형 저항
   const stealCost = id => Math.round(sizeOf(id) * C.economy.stealPerCell * C.economy.resist[S.co[id].type.resist]);
-  const guardCost = () => sizeOf(ME) * C.economy.guardPerCell;
+  const guardCost = () => sizeOf(ME) * C.economy.guardPerCell * Math.pow(C.economy.guardStreakMul, S.guardStreak);
 
   // 뺏을 수 있는 칸 : 내 영토에 붙은 상대 칸. 본사는 그 회사의 마지막 칸일 때만. 방어 중인 내 칸은 불가.
   function stealable(by, onlyFrom) {
@@ -294,6 +301,36 @@
       if (NB[i].some(n => S.owner[n] === by)) out.push(i);
     }
     return out;
+  }
+
+  // 흡수 조건 : 큰 쪽이 작은 쪽의 absorbRatio배 이상, 큰 쪽이 minBigSize칸 이상, 유예 턴 지남
+  const canAbsorb = (big, small, turn = S.turn) =>
+    turn > C.contact.graceTurns && big >= C.contact.minBigSize && big >= small * C.contact.absorbRatio;
+
+  // 위험한 빈칸 : 거기로 뻗으면 맞닿는 회사가 나를 흡수할 수 있는 칸 (다음 턴, 상대가 1칸 더 뻗는다고 보고)
+  function dangerCells(reach) {
+    const out = new Set();
+    const mine = sizeOf(ME) + 1;
+    for (const i of reach) {
+      for (const n of NB[i]) {
+        const o = S.owner[n];
+        if (o > ME && S.co[o].alive && !touches(ME, o) && canAbsorb(sizeOf(o) + 1, mine, S.turn + 1)) { out.add(i); break; }
+      }
+    }
+    return out;
+  }
+
+  // 흡수 위험 : 다음 턴에 나를 흡수할 수 있는 경쟁사 (맞닿았거나 한 칸 사이, 상대가 2칸 더 커진다고 보고)
+  function threats() {
+    const me = S.co[ME];
+    if (!me || !me.alive || S.over) return [];
+    const mine = cellsOf(ME), small = mine.length;
+    return S.co.filter(co => {
+      if (co.id === ME || !co.alive) return false;
+      if (!canAbsorb(sizeOf(co.id) + 2, small, S.turn + 1)) return false;
+      const theirs = cellsOf(co.id);
+      return mine.some(a => theirs.some(b => hexDist(a, b) <= 2));
+    });
   }
 
   // 칸 크기 : 남은 공간에 맞춰 계산 (가로 = 칸 6개 + 반 칸, 세로 = R × (1.5 × 줄 + 0.5))
@@ -333,7 +370,7 @@
     `<img src="assets/tile-${tile}-a.png" alt=""><img class="b" src="assets/tile-${tile}-b.png" alt=""></span>`;
 
   // 판 그리기
-  let hexEls = [];
+  let hexEls = [], warnEls = [];
   const hqEls = {};
   function buildBoard() {
     layout();
@@ -349,6 +386,18 @@
       board.appendChild(p);
       hexEls.push(p);
     }
+    warnEls = [];
+    for (let i = 0; i < N; i++) {
+      const [x, y] = center(i);
+      const t = document.createElementNS(SVGNS, 'text');
+      t.setAttribute('class', 'warn');
+      t.setAttribute('x', x);
+      t.setAttribute('y', y);
+      t.textContent = '!';
+      t.style.display = 'none';
+      board.appendChild(t);
+      warnEls.push(t);
+    }
     $('hqLayer').innerHTML = '';
     for (const k in hqEls) delete hqEls[k];
     paint();
@@ -358,12 +407,14 @@
   function paint(fx = {}) {
     const live = S.co[ME] && S.co[ME].alive && !S.over;
     const reach = live ? frontier(ME) : new Set();
+    const danger = live ? dangerCells(reach) : new Set();
     const targets = new Set(live ? stealable(ME) : []);
     for (let i = 0; i < N; i++) {
       const el = hexEls[i], o = S.owner[i];
       let cls = 'hex';
       if (o >= 0) cls += ' own';
-      else if (reach.has(i)) cls += ' reach';
+      else if (reach.has(i)) cls += ' reach' + (danger.has(i) ? ' danger' : '');
+      warnEls[i].style.display = danger.has(i) ? '' : 'none';
       if (targets.has(i)) {
         cls += ' target';
         if (stealCost(o) > S.co[ME].cash) cls += ' poor';
@@ -426,8 +477,11 @@
     $('sIncome').textContent = me && me.alive ? '+' + sizeOf(ME) * me.type.price : '';
     $('bGuardCost').textContent = me ? '-' + guardCost() : '-0';
     $('bGuard').disabled = !me || !me.alive || S.over || me.cash < guardCost();
+    const th = new Set(threats().map(c => c.id));
+    $('bGuard').classList.toggle('alert', th.size > 0 && !$('bGuard').disabled);
+    $('bGuardCost').textContent = th.size ? '흡수 위험 -' + guardCost() : $('bGuardCost').textContent;
     $('legend').innerHTML = S.co.map(co =>
-      `<span class="${co.alive ? '' : 'dead'} ${co.id === ME ? 'me' : ''}">` +
+      `<span class="${co.alive ? '' : 'dead'} ${co.id === ME ? 'me' : ''} ${th.has(co.id) ? 'threat' : ''}">` +
       `<i class="chip" style="background:${co.color}"></i>${co.name} <b>${co.alive ? sizeOf(co.id) : 0}</b></span>`
     ).join('');
   }
@@ -502,7 +556,6 @@
 
   // ③ 접촉 판정 : 맞닿은 두 회사 중 큰 쪽이 작은 쪽의 absorbRatio배 이상이면 통째로 흡수
   function contacts(fx) {
-    const ratio = C.contact.absorbRatio;
     const ate = {};
     for (;;) {
       const alive = S.co.filter(c => c.alive);
@@ -513,7 +566,8 @@
         const sa = sizeOf(A.id), sb = sizeOf(B.id);
         const [big, small, r] = sa >= sb ? [A, B, sa / sb] : [B, A, sb / sa];
         if ((ate[big.id] || 0) >= C.contact.absorbPerTurn) continue;
-        if (r >= ratio && (!best || r > best.r)) best = { big, small, r };
+        if (small.id === ME && S.guard) continue;
+        if (canAbsorb(Math.max(sa, sb), Math.min(sa, sb)) && (!best || r > best.r)) best = { big, small, r };
       }
       if (!best) break;
       ate[best.big.id] = (ate[best.big.id] || 0) + 1;
@@ -575,6 +629,7 @@
       co.cash += inc;
       if (co.id === ME) myIncome = inc;
     }
+    S.guardStreak = S.guard ? S.guardStreak + 1 : 0;
     S.guard = false;
     paint(fx);
 
@@ -595,7 +650,7 @@
     } else if (fx.closed.length) {
       banner(`${fx.closed[0].name} 폐업`);
     } else if (fx.guard) {
-      banner('방어 : 이번 턴 뺏기지 않음');
+      banner(`방어 : 이번 턴 뺏기·흡수 막음 (다음 방어 ${guardCost()})`);
     }
 
     if (!me.alive) {
@@ -727,7 +782,7 @@
 
   function newGame() {
     S.owner.fill(EMPTY);
-    S.co = []; S.turn = 0; S.touching = new Set(); S.over = false; S.sel = -1; S.guard = false;
+    S.co = []; S.turn = 0; S.touching = new Set(); S.over = false; S.sel = -1; S.guard = false; S.guardStreak = 0;
     $('stealSheet').classList.add('hide');
     buildBoard();
     $('over').classList.add('hide');
