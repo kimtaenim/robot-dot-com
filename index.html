@@ -28,7 +28,6 @@
     user-select: none; -webkit-user-select: none;
     touch-action: manipulation;
   }
-  .mono { font-family: 'IBM Plex Mono', monospace; }
 
   /* HUD */
   #hud { flex: none; text-align: center; padding: 8px 12px 4px; }
@@ -37,18 +36,52 @@
   #stats { display: flex; justify-content: center; gap: 10px; margin-top: 8px; font-size: 14px; align-items: center; }
   .stat { background: var(--panel); border-radius: 8px; padding: 4px 10px; display: flex; gap: 6px; align-items: baseline; }
   .stat b { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 16px; }
-  .chip { width: 10px; height: 10px; border-radius: 3px; display: inline-block; align-self: center; }
+  .chip { width: 10px; height: 10px; border-radius: 3px; display: inline-block; align-self: center; flex: none; }
+  #legend { display: flex; justify-content: center; gap: 8px; margin-top: 7px; font-size: 11.5px; white-space: nowrap; height: 16px; }
+  #legend span { display: inline-flex; align-items: center; gap: 3px; }
+  #legend b { font-family: 'IBM Plex Mono', monospace; font-weight: 700; }
+  #legend .dead { opacity: .35; text-decoration: line-through; }
+  #legend .me { font-weight: 700; }
 
   /* 판 */
   #boardWrap { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  #boardBox { position: relative; }
+  #boardBox.shake { animation: shake .35s ease-in-out; }
+  @keyframes shake { 0%, 100% { translate: 0 0; } 20% { translate: -4px 1px; } 40% { translate: 4px -1px; } 60% { translate: -3px 0; } 80% { translate: 2px 1px; } }
   #board { display: block; overflow: visible; }
-  .hex { stroke: var(--empty-line); stroke-width: 1.5; transition: fill .25s; }
-  .hex.empty { fill: var(--empty); }
+  .hex { stroke: var(--empty-line); stroke-width: 1.5; fill: var(--empty); transition: fill .3s; transform-box: fill-box; transform-origin: center; }
   .hex.reach { fill: #8996A2; stroke: var(--me); stroke-dasharray: 4 3; cursor: pointer; }
-  .hex.mine { fill: var(--me); stroke: rgba(0,0,0,.25); }
-  .hex.pop { animation: pop .35s ease-out; transform-box: fill-box; transform-origin: center; }
+  .hex.own { stroke: rgba(0,0,0,.25); }
+  .hex.pop { animation: pop .35s ease-out; }
+  .hex.wave { animation: pop .4s ease-out both; }
+  .hex.touch { animation: touch .45s ease-in-out; }
   @keyframes pop { 0% { transform: scale(.4); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
-  .hq { pointer-events: none; }
+  @keyframes touch { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg) scale(1.05); } 50% { transform: rotate(7deg); } 75% { transform: rotate(-4deg); } }
+
+  /* 본사 타일 : Robot Rush와 같은 들썩임(기울며 통통, a/b 2프레임) */
+  #hqLayer { position: absolute; inset: 0; pointer-events: none; }
+  .art { position: absolute; display: block; }
+  .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .art.bob { transform-origin: 50% 85%; animation: artBob 1s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .art.bob img.b { display: none; }
+  .art.bob.swap img.b { display: block; }
+  .art.bob.swap img { animation: artA 1s steps(1, end) infinite; animation-delay: var(--d, 0s); }
+  .art.bob.swap img.b { animation-name: artB; }
+  @keyframes artA { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes artB { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 1; } }
+  @keyframes artBob { 0%, 100% { rotate: -14deg; translate: 0 0; } 25% { rotate: 0deg; translate: 0 -18%; } 50% { rotate: 14deg; translate: 0 0; } 75% { rotate: 0deg; translate: 0 -18%; } }
+  .art.gone { animation: gone .5s ease-in forwards; }
+  @keyframes gone { to { transform: scale(0) rotate(90deg); opacity: 0; } }
+
+  /* 알림 띠 */
+  #banner {
+    position: fixed; left: 50%; top: 42%; z-index: 20; pointer-events: none;
+    background: rgba(30, 36, 42, .88); border-radius: 12px; padding: 10px 16px;
+    font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 16px; text-align: center;
+    opacity: 0; transform: translate(-50%, -50%) scale(.5); white-space: nowrap;
+  }
+  #banner.show { animation: banner 1.6s ease-out; }
+  @keyframes banner { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } 25% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -70%) scale(1); } }
 
   /* 하단 행동 줄 */
   #actions { flex: none; display: flex; gap: 6px; padding: 6px 10px 10px; }
@@ -63,16 +96,16 @@
   #actions button:disabled { opacity: .35; }
   #actions button:active:not(:disabled) { transform: scale(.96); }
 
-  /* 유형 고르기 화면 */
-  #pick {
+  /* 덮개 화면 (유형 고르기, 흡수당함) */
+  .cover {
     position: fixed; inset: 0; background: var(--bg); z-index: 10;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 16px; gap: 10px;
+    padding: 16px; gap: 10px; text-align: center;
   }
-  #pick.hide { display: none; }
-  #pick h1 { font-family: 'Rye', serif; font-weight: 400; font-size: 30px; }
-  #pick h2 { font-family: 'Sunflower', sans-serif; font-size: 16px; opacity: .85; }
-  #pick p { font-size: 14px; opacity: .85; margin: 6px 0 4px; }
+  .cover.hide { display: none; }
+  .cover h1 { font-family: 'Rye', serif; font-weight: 400; font-size: 30px; }
+  .cover h2 { font-family: 'Sunflower', sans-serif; font-size: 16px; opacity: .85; }
+  .cover p { font-size: 14px; opacity: .85; margin: 6px 0 4px; }
   #typeList { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 360px; }
   .typeBtn {
     display: flex; align-items: center; gap: 12px; padding: 8px 12px;
@@ -80,9 +113,20 @@
     text-align: left; font: inherit;
   }
   .typeBtn:active { border-color: var(--me); transform: scale(.98); }
-  .typeBtn img { width: 52px; height: 52px; image-rendering: auto; flex: none; }
+  .typeBtn .art { position: relative; width: 52px; height: 52px; flex: none; }
   .typeBtn .nm { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 18px; }
   .typeBtn .st { font-family: 'IBM Plex Mono', monospace; font-size: 11px; opacity: .8; margin-top: 2px; }
+  #over { background: rgba(40, 47, 54, .92); }
+  #over .big { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 26px; }
+  #over button {
+    margin-top: 10px; height: 52px; padding: 0 28px; border: none; border-radius: 10px;
+    background: var(--me); color: #2A2F35; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 17px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .art.bob, .art.bob img, #boardBox.shake, .hex.touch { animation: none; }
+    .art.bob img.b { opacity: 0; }
+  }
 </style>
 </head>
 <body>
@@ -95,9 +139,15 @@
     <div class="stat"><span>칸</span><b id="sCells">0</b></div>
     <div class="stat"><span class="chip" id="sChip"></span><span id="sType">-</span></div>
   </div>
+  <div id="legend"></div>
 </div>
 
-<div id="boardWrap"><svg id="board"></svg></div>
+<div id="boardWrap">
+  <div id="boardBox">
+    <svg id="board"></svg>
+    <div id="hqLayer"></div>
+  </div>
+</div>
 
 <div id="actions">
   <button id="bGrow" class="on">뻗기<small>밝은 칸 탭</small></button>
@@ -107,11 +157,19 @@
   <button id="bNew">새 판<small>처음부터</small></button>
 </div>
 
-<div id="pick">
+<div id="banner"></div>
+
+<div id="pick" class="cover">
   <h1>★ROBOT-DOT-COM★</h1>
   <h2>로봇닷컴</h2>
   <p>어떤 로봇 회사를 세울까?</p>
   <div id="typeList"></div>
+</div>
+
+<div id="over" class="cover hide">
+  <div class="big" id="overTitle"></div>
+  <p id="overText"></p>
+  <button id="bRestart">새로 시작</button>
 </div>
 
 <script>
@@ -124,39 +182,59 @@
 
   const $ = id => document.getElementById(id);
   const board = $('board');
+  const rnd = n => Math.floor(Math.random() * n);
+  const pick = arr => arr[rnd(arr.length)];
+  const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = rnd(i + 1); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
 
   // 상태
+  // co[0] = 내 회사, co[1-4] = 경쟁사. 모두 가상 회사.
   const S = {
     owner: new Array(N).fill(EMPTY),
-    hq: -1,
-    type: null,
-    turn: 0
+    co: [],
+    turn: 0,
+    touching: new Set(),
+    over: false
   };
 
   // 좌표 (홀수 줄이 반 칸 오른쪽으로 밀린 odd-r 배치)
   const idx = (c, r) => r * COLS + c;
   const colOf = i => i % COLS, rowOf = i => Math.floor(i / COLS);
 
-  function neighbors(i) {
+  const NB = [];
+  for (let i = 0; i < N; i++) {
     const c = colOf(i), r = rowOf(i);
     const d = (r % 2)
       ? [[-1,0],[1,0],[0,-1],[1,-1],[0,1],[1,1]]
       : [[-1,0],[1,0],[-1,-1],[0,-1],[-1,1],[0,1]];
-    const out = [];
-    for (const [dc, dr] of d) {
-      const nc = c + dc, nr = r + dr;
-      if (nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS) out.push(idx(nc, nr));
-    }
-    return out;
+    NB.push(d.map(([dc, dr]) => [c + dc, r + dr])
+      .filter(([nc, nr]) => nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS)
+      .map(([nc, nr]) => idx(nc, nr)));
   }
 
-  function reachable() {
+  function hexDist(a, b) {
+    const cube = i => { const r = rowOf(i), x = colOf(i) - (r - (r & 1)) / 2; return [x, r, -x - r]; };
+    const [ax, ay, az] = cube(a), [bx, by, bz] = cube(b);
+    return Math.max(Math.abs(ax - bx), Math.abs(ay - by), Math.abs(az - bz));
+  }
+
+  const cellsOf = id => { const out = []; for (let i = 0; i < N; i++) if (S.owner[i] === id) out.push(i); return out; };
+  const sizeOf = id => { let n = 0; for (let i = 0; i < N; i++) if (S.owner[i] === id) n++; return n; };
+
+  function frontier(id) {
     const set = new Set();
     for (let i = 0; i < N; i++) {
-      if (S.owner[i] !== ME) continue;
-      for (const n of neighbors(i)) if (S.owner[n] === EMPTY) set.add(n);
+      if (S.owner[i] !== id) continue;
+      for (const n of NB[i]) if (S.owner[n] === EMPTY) set.add(n);
     }
     return set;
+  }
+
+  function touches(a, b) {
+    for (let i = 0; i < N; i++) {
+      if (S.owner[i] !== a) continue;
+      for (const n of NB[i]) if (S.owner[n] === b) return true;
+    }
+    return false;
   }
 
   // 칸 크기 : 남은 공간에 맞춰 계산 (가로 = 칸 6개 + 반 칸, 세로 = R × (1.5 × 줄 + 0.5))
@@ -169,8 +247,11 @@
     const byH = availH / ((1.5 * ROWS + 0.5) / SQ3);
     W = Math.max(C.board.cellMin, Math.min(C.board.cellMax, byW, byH));
     R = W / SQ3;
-    board.setAttribute('width', Math.ceil(W * (COLS + 0.5)));
-    board.setAttribute('height', Math.ceil(R * (1.5 * ROWS + 0.5)));
+    const w = Math.ceil(W * (COLS + 0.5)), h = Math.ceil(R * (1.5 * ROWS + 0.5));
+    board.setAttribute('width', w);
+    board.setAttribute('height', h);
+    $('boardBox').style.width = w + 'px';
+    $('boardBox').style.height = h + 'px';
   }
 
   function center(i) {
@@ -187,8 +268,14 @@
     return pts.join(' ');
   }
 
+  // Robot Rush와 같은 들썩이는 타일
+  const artHTML = (tile, extra = '') =>
+    `<span class="art bob swap ${extra}" style="--d:-${(Math.random() * 1.1).toFixed(2)}s">` +
+    `<img src="assets/tile-${tile}-a.png" alt=""><img class="b" src="assets/tile-${tile}-b.png" alt=""></span>`;
+
   // 판 그리기
-  let hexEls = [], hqImg = null, frame = 'a';
+  let hexEls = [];
+  const hqEls = {};
   function buildBoard() {
     layout();
     board.innerHTML = '';
@@ -198,93 +285,253 @@
       const [x, y] = center(i);
       const p = document.createElementNS(SVGNS, 'polygon');
       p.setAttribute('points', hexPoints(x, y, rad));
-      p.setAttribute('class', 'hex empty');
+      p.setAttribute('class', 'hex');
       p.dataset.i = i;
       board.appendChild(p);
       hexEls.push(p);
     }
-    hqImg = document.createElementNS(SVGNS, 'image');
-    hqImg.setAttribute('class', 'hq');
-    board.appendChild(hqImg);
+    $('hqLayer').innerHTML = '';
+    for (const k in hqEls) delete hqEls[k];
     paint();
   }
 
-  function paint(popIdx) {
-    const reach = reachable();
+  // fx : { pop: Set, wave: Map(칸 → 지연 ms), touch: Set }
+  function paint(fx = {}) {
+    const reach = (S.co[ME] && S.co[ME].alive && !S.over) ? frontier(ME) : new Set();
     for (let i = 0; i < N; i++) {
-      const el = hexEls[i];
-      let cls = 'hex ';
-      if (S.owner[i] === ME) cls += 'mine';
-      else if (reach.has(i)) cls += 'reach';
-      else cls += 'empty';
-      if (i === popIdx) cls += ' pop';
+      const el = hexEls[i], o = S.owner[i];
+      let cls = 'hex';
+      if (o >= 0) cls += ' own';
+      else if (reach.has(i)) cls += ' reach';
       el.setAttribute('class', cls);
+      el.style.fill = o >= 0 ? S.co[o].color : '';
+      el.style.transitionDelay = '';
+      el.style.animationDelay = '';
     }
-    if (S.hq >= 0 && S.type) {
-      const [x, y] = center(S.hq);
-      const sz = W * 0.92;
-      hqImg.setAttribute('x', x - sz / 2);
-      hqImg.setAttribute('y', y - sz / 2);
-      hqImg.setAttribute('width', sz);
-      hqImg.setAttribute('height', sz);
-      hqImg.setAttribute('href', `assets/tile-${S.type.tile}-${frame}.png`);
-      hqImg.style.display = '';
-    } else {
-      hqImg.style.display = 'none';
+    const anim = [];
+    if (fx.pop) for (const i of fx.pop) anim.push([i, 'pop', 0]);
+    if (fx.touch) for (const i of fx.touch) anim.push([i, 'touch', 0]);
+    if (fx.wave) for (const [i, d] of fx.wave) anim.push([i, 'wave', d]);
+    if (anim.length) {
+      // 같은 연출을 다시 틀 수 있게 한 번 끊고 붙임
+      void board.getBoundingClientRect();
+      for (const [i, c, d] of anim) {
+        const el = hexEls[i];
+        if (d) { el.style.transitionDelay = d + 'ms'; el.style.animationDelay = d + 'ms'; }
+        el.classList.add(c);
+      }
     }
-    $('sTurn').textContent = S.turn;
-    $('sCells').textContent = S.owner.filter(o => o === ME).length;
-    $('sType').textContent = S.type ? S.type.name : '-';
+    paintHQ();
+    paintHUD();
   }
 
-  // 본사 타일 a/b 2프레임
-  setInterval(() => {
-    frame = frame === 'a' ? 'b' : 'a';
-    if (S.hq >= 0 && S.type && hqImg) hqImg.setAttribute('href', `assets/tile-${S.type.tile}-${frame}.png`);
-  }, 500);
+  function paintHQ() {
+    const layer = $('hqLayer');
+    const sz = W * 0.9;
+    for (const co of S.co) {
+      let el = hqEls[co.id];
+      const live = co.alive && S.owner[co.hq] === co.id;
+      if (live && !el) {
+        layer.insertAdjacentHTML('beforeend', artHTML(co.type.tile));
+        el = hqEls[co.id] = layer.lastElementChild;
+        el.dataset.tile = co.type.tile;
+      }
+      if (!el) continue;
+      if (!live) {
+        el.classList.add('gone');
+        delete hqEls[co.id];
+        setTimeout(() => el.remove(), 500);
+        continue;
+      }
+      const [x, y] = center(co.hq);
+      el.style.left = (x - sz / 2) + 'px';
+      el.style.top = (y - sz / 2) + 'px';
+      el.style.width = el.style.height = sz + 'px';
+    }
+  }
 
-  // 턴 진행 (1단계 : 내 행동만)
-  function endTurn(popIdx) {
+  function paintHUD() {
+    const me = S.co[ME];
+    $('sTurn').textContent = S.turn;
+    $('sCells').textContent = me ? sizeOf(ME) : 0;
+    $('sType').textContent = me ? me.type.name : '-';
+    $('legend').innerHTML = S.co.map(co =>
+      `<span class="${co.alive ? '' : 'dead'} ${co.id === ME ? 'me' : ''}">` +
+      `<i class="chip" style="background:${co.color}"></i>${co.name} <b>${co.alive ? sizeOf(co.id) : 0}</b></span>`
+    ).join('');
+  }
+
+  let bannerT = 0;
+  function banner(text) {
+    const b = $('banner');
+    b.textContent = text;
+    b.classList.remove('show');
+    void b.offsetWidth;
+    b.classList.add('show');
+    clearTimeout(bannerT);
+    bannerT = setTimeout(() => b.classList.remove('show'), 1700);
+  }
+
+  function shake() {
+    const b = $('boardBox');
+    b.classList.remove('shake');
+    void b.offsetWidth;
+    b.classList.add('shake');
+  }
+
+  // ② 경쟁사 자동 확장 : 인접 빈칸 중 무작위. 칸 수 bigAt 이상이면 growBig칸. 유형 속도 계수를 누적.
+  function rivalsGrow(pop) {
+    for (const co of S.co) {
+      if (co.id === ME || !co.alive) continue;
+      const base = sizeOf(co.id) >= C.rivals.bigAt ? C.rivals.growBig : C.rivals.growBase;
+      co.acc += base * co.type.speed;
+      while (co.acc >= 1) {
+        co.acc -= 1;
+        const f = [...frontier(co.id)];
+        if (!f.length) { co.acc = 0; break; }
+        const i = pick(f);
+        S.owner[i] = co.id;
+        pop.add(i);
+      }
+    }
+  }
+
+  // ③ 접촉 판정 : 맞닿은 두 회사 중 큰 쪽이 작은 쪽의 absorbRatio배 이상이면 통째로 흡수
+  function contacts(fx) {
+    const ratio = C.contact.absorbRatio;
+    const ate = {};
+    for (;;) {
+      const alive = S.co.filter(c => c.alive);
+      let best = null;
+      for (let a = 0; a < alive.length; a++) for (let b = a + 1; b < alive.length; b++) {
+        const A = alive[a], B = alive[b];
+        if (!touches(A.id, B.id)) continue;
+        const sa = sizeOf(A.id), sb = sizeOf(B.id);
+        const [big, small, r] = sa >= sb ? [A, B, sa / sb] : [B, A, sb / sa];
+        if ((ate[big.id] || 0) >= C.contact.absorbPerTurn) continue;
+        if (r >= ratio && (!best || r > best.r)) best = { big, small, r };
+      }
+      if (!best) break;
+      ate[best.big.id] = (ate[best.big.id] || 0) + 1;
+      absorb(best.big, best.small, fx);
+    }
+
+    // 2배 미만으로 새로 맞닿은 회사들 : 경계 칸이 흔들림
+    const now = new Set();
+    for (const A of S.co) for (const B of S.co) {
+      if (A.id >= B.id || !A.alive || !B.alive || !touches(A.id, B.id)) continue;
+      const key = A.id + '-' + B.id;
+      now.add(key);
+      if (S.touching.has(key)) continue;
+      for (let i = 0; i < N; i++) {
+        if (S.owner[i] !== A.id && S.owner[i] !== B.id) continue;
+        const other = S.owner[i] === A.id ? B.id : A.id;
+        if (NB[i].some(n => S.owner[n] === other)) fx.touch.add(i);
+      }
+      fx.newTouch = true;
+    }
+    S.touching = now;
+  }
+
+  // 흡수 : 작은 회사 칸이 맞닿은 경계에서부터 물결처럼 큰 회사 색으로 바뀜
+  function absorb(big, small, fx) {
+    const cells = new Set(cellsOf(small.id));
+    const dist = new Map();
+    const q = [];
+    for (const i of cells) if (NB[i].some(n => S.owner[n] === big.id)) { dist.set(i, 0); q.push(i); }
+    for (let h = 0; h < q.length; h++) {
+      const i = q[h];
+      for (const n of NB[i]) if (cells.has(n) && !dist.has(n)) { dist.set(n, dist.get(i) + 1); q.push(n); }
+    }
+    for (const i of cells) {
+      S.owner[i] = big.id;
+      fx.wave.set(i, (dist.has(i) ? dist.get(i) : 0) * 90 + 120);
+      fx.pop.delete(i);
+    }
+    small.alive = false;
+    fx.absorbed.push([big, small]);
+  }
+
+  function endTurn(myPop) {
+    if (S.over) return;
     S.turn++;
-    paint(popIdx);
+    const fx = { pop: new Set(myPop !== undefined ? [myPop] : []), wave: new Map(), touch: new Set(), absorbed: [] };
+    rivalsGrow(fx.pop);
+    contacts(fx);
+    paint(fx);
+
+    if (fx.absorbed.length || fx.newTouch) shake();
+    if (fx.absorbed.length) {
+      const [big, small] = fx.absorbed[fx.absorbed.length - 1];
+      banner(`${big.name}, ${small.name} 흡수`);
+    }
+    if (!S.co[ME].alive) {
+      // 매각 수락/거절은 4단계에서. 지금은 흡수되면 판이 끝남.
+      S.over = true;
+      const eater = fx.absorbed.find(([, s]) => s.id === ME)[0];
+      setTimeout(() => {
+        $('overTitle').textContent = '흡수당했다';
+        $('overText').textContent = `${eater.name}에 통째로 먹혔다. 턴 ${S.turn}`;
+        $('over').classList.remove('hide');
+      }, 1400);
+    }
   }
 
   // 판 탭 : 인접 빈칸이면 뻗기
   board.addEventListener('pointerup', e => {
     const t = e.target;
-    if (!t.dataset || t.dataset.i === undefined || !S.type) return;
+    if (S.over || !S.co[ME] || !t.dataset || t.dataset.i === undefined) return;
     const i = +t.dataset.i;
-    if (S.owner[i] !== EMPTY || !reachable().has(i)) return;
+    if (S.owner[i] !== EMPTY || !frontier(ME).has(i)) return;
     S.owner[i] = ME;
     endTurn(i);
   });
 
-  $('bPass').addEventListener('click', () => { if (S.type) endTurn(); });
+  $('bPass').addEventListener('click', () => { if (S.co[ME] && !S.over) endTurn(); });
   $('bNew').addEventListener('click', () => {
-    if (S.turn > 0 && !confirm('지금 판을 버리고 새로 시작할까?')) return;
+    if (S.turn > 0 && !S.over && !confirm('지금 판을 버리고 새로 시작할까?')) return;
     newGame();
   });
+  $('bRestart').addEventListener('click', newGame);
 
-  // 창업 : 판 가운데 근처 빈칸에 씨앗 1칸
+  // 창업 : 내 회사는 판 가운데 근처, 경쟁사는 서로 멀리 떨어진 빈칸에 씨앗 1칸
+  function seedFar(seeds) {
+    let bestD = -1, cand = [];
+    for (let i = 0; i < N; i++) {
+      if (S.owner[i] !== EMPTY) continue;
+      const d = Math.min(...seeds.map(s => hexDist(i, s)));
+      if (d > bestD) { bestD = d; cand = [i]; } else if (d === bestD) cand.push(i);
+    }
+    return pick(cand);
+  }
+
   function found(type) {
-    S.type = type;
     const midC = (COLS - 1) / 2, midR = (ROWS - 1) / 2;
     const cand = [];
     for (let i = 0; i < N; i++) {
-      if (S.owner[i] !== EMPTY) continue;
       if (Math.abs(colOf(i) - midC) <= 1 && Math.abs(rowOf(i) - midR) <= 1) cand.push(i);
     }
-    const seed = cand[Math.floor(Math.random() * cand.length)];
+    const seed = pick(cand);
     S.owner[seed] = ME;
-    S.hq = seed;
+    S.co = [{ id: ME, name: '나', type, color: C.companyColors[0], hq: seed, alive: true, acc: 0 }];
+
+    const names = shuffle([...C.rivals.names]);
+    const seeds = [seed];
+    for (let k = 1; k <= C.rivals.count; k++) {
+      const s = seedFar(seeds);
+      seeds.push(s);
+      S.owner[s] = k;
+      S.co.push({ id: k, name: names[k - 1], type: pick(C.types), color: C.companyColors[k], hq: s, alive: true, acc: 0 });
+    }
     $('pick').classList.add('hide');
-    paint(seed);
+    paint({ pop: new Set(seeds) });
   }
 
   function newGame() {
     S.owner.fill(EMPTY);
-    S.hq = -1; S.type = null; S.turn = 0;
-    paint();
+    S.co = []; S.turn = 0; S.touching = new Set(); S.over = false;
+    buildBoard();
+    $('over').classList.add('hide');
     $('pick').classList.remove('hide');
   }
 
@@ -294,8 +541,7 @@
     for (const t of C.types) {
       const b = document.createElement('button');
       b.className = 'typeBtn';
-      b.innerHTML =
-        `<img src="assets/tile-${t.tile}-a.png" alt="">` +
+      b.innerHTML = artHTML(t.tile) +
         `<div><div class="nm">${t.name}</div>` +
         `<div class="st">속도 ${t.speed.toFixed(1)} · 매출 ${t.price} · 등급 ${t.grade.toFixed(1)} · 저항 ${t.resist}</div></div>`;
       b.addEventListener('click', () => found(t));
@@ -310,7 +556,7 @@
 
   buildPick();
   buildBoard();
-  window.addEventListener('resize', buildBoard);
+  window.addEventListener('resize', () => { buildBoard(); });
 })();
 </script>
 </body>
