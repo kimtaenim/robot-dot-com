@@ -58,7 +58,7 @@
 - 타일 : Robot Rush의 assets/tile-{key}-a.png, -b.png (256px, a/b 2프레임). 저장소에 assets/ 폴더로 복사해 둘 것(아래 준비사항).
 - 글꼴 : Rye(영문 제목), Sunflower 700(한글 제목), Gowun Dodum(본문), IBM Plex Mono(숫자). Google Fonts.
 - 색 : 배경 #56636F, HUD 글자 #F2F5F7. 회사 5색은 서로 뚜렷하게(예 : 주황·초록·보라·하늘·노랑), 기존 세력은 #8A94A0.
-- 제목 : ★ROBOT-DOT-COM★ (한글 부제 로봇닷컴). Robot Rush의 ★ROBOT RU$H★ 양식. 저장소명 robot-dot-com, 주소 kimtaenim.github.io/robot-dot-com. 제목 아래에 "실존 기업과 무관한 교육용 게임" 한 줄 고정 표시.
+- 제목 : ★ROBOT-DOT-COM★ (한글 부제 로봇닷컴). Robot Rush의 ★ROBOT RU$H★ 양식. 저장소명 robot-dot-com, 주소 kimtaenim.github.io/robot-dot-com.
 - 헥사는 SVG로 그리고, 영토 칸은 색만 채우며 회사 본사 칸(창업 위치) 1곳에만 타일 아이콘을 띄운다.
 - 접촉·흡수·카드 등장에는 짧은 연출(흔들림, 색 번짐, 팝)을 넣는다. 흡수는 작은 회사 색이 큰 회사 색으로 물결처럼 바뀌는 연출.
 

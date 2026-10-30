@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#56636F">
+<title>ROBOT-DOT-COM 로봇닷컴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Sunflower:wght@700&family=Gowun+Dodum&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #56636F;
+    --fg: #F2F5F7;
+    --empty: #66737F;
+    --empty-line: #4A5662;
+    --panel: #48535E;
+    --me: #F28C28;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; }
+  body {
+    font-family: 'Gowun Dodum', sans-serif;
+    display: flex; flex-direction: column;
+    height: 100dvh;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    user-select: none; -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+
+  /* HUD */
+  #hud { flex: none; text-align: center; padding: 8px 12px 4px; }
+  #title { font-family: 'Rye', serif; font-size: 26px; letter-spacing: 1px; line-height: 1.1; }
+  #subtitle { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 14px; opacity: .85; margin-top: 2px; }
+  #stats { display: flex; justify-content: center; gap: 10px; margin-top: 8px; font-size: 14px; align-items: center; }
+  .stat { background: var(--panel); border-radius: 8px; padding: 4px 10px; display: flex; gap: 6px; align-items: baseline; }
+  .stat b { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 16px; }
+  .chip { width: 10px; height: 10px; border-radius: 3px; display: inline-block; align-self: center; }
+
+  /* 판 */
+  #boardWrap { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  #board { display: block; overflow: visible; }
+  .hex { stroke: var(--empty-line); stroke-width: 1.5; transition: fill .25s; }
+  .hex.empty { fill: var(--empty); }
+  .hex.reach { fill: #8996A2; stroke: var(--me); stroke-dasharray: 4 3; cursor: pointer; }
+  .hex.mine { fill: var(--me); stroke: rgba(0,0,0,.25); }
+  .hex.pop { animation: pop .35s ease-out; transform-box: fill-box; transform-origin: center; }
+  @keyframes pop { 0% { transform: scale(.4); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
+  .hq { pointer-events: none; }
+
+  /* 하단 행동 줄 */
+  #actions { flex: none; display: flex; gap: 6px; padding: 6px 10px 10px; }
+  #actions button {
+    flex: 1; height: 52px; border: none; border-radius: 10px;
+    background: var(--panel); color: var(--fg);
+    font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  }
+  #actions button small { font-family: 'Gowun Dodum', sans-serif; font-weight: 400; font-size: 10px; opacity: .75; }
+  #actions button.on { background: var(--me); color: #2A2F35; }
+  #actions button:disabled { opacity: .35; }
+  #actions button:active:not(:disabled) { transform: scale(.96); }
+
+  /* 유형 고르기 화면 */
+  #pick {
+    position: fixed; inset: 0; background: var(--bg); z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 16px; gap: 10px;
+  }
+  #pick.hide { display: none; }
+  #pick h1 { font-family: 'Rye', serif; font-weight: 400; font-size: 30px; }
+  #pick h2 { font-family: 'Sunflower', sans-serif; font-size: 16px; opacity: .85; }
+  #pick p { font-size: 14px; opacity: .85; margin: 6px 0 4px; }
+  #typeList { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 360px; }
+  .typeBtn {
+    display: flex; align-items: center; gap: 12px; padding: 8px 12px;
+    background: var(--panel); border: 2px solid transparent; border-radius: 12px; color: var(--fg);
+    text-align: left; font: inherit;
+  }
+  .typeBtn:active { border-color: var(--me); transform: scale(.98); }
+  .typeBtn img { width: 52px; height: 52px; image-rendering: auto; flex: none; }
+  .typeBtn .nm { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 18px; }
+  .typeBtn .st { font-family: 'IBM Plex Mono', monospace; font-size: 11px; opacity: .8; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="title">★ROBOT-DOT-COM★</div>
+  <div id="subtitle">로봇닷컴</div>
+  <div id="stats">
+    <div class="stat"><span>턴</span><b id="sTurn">0</b></div>
+    <div class="stat"><span>칸</span><b id="sCells">0</b></div>
+    <div class="stat"><span class="chip" id="sChip"></span><span id="sType">-</span></div>
+  </div>
+</div>
+
+<div id="boardWrap"><svg id="board"></svg></div>
+
+<div id="actions">
+  <button id="bGrow" class="on">뻗기<small>밝은 칸 탭</small></button>
+  <button id="bSteal" disabled>뺏기<small>3단계</small></button>
+  <button id="bGuard" disabled>방어<small>3단계</small></button>
+  <button id="bPass">패스<small>턴 넘김</small></button>
+  <button id="bNew">새 판<small>처음부터</small></button>
+</div>
+
+<div id="pick">
+  <h1>★ROBOT-DOT-COM★</h1>
+  <h2>로봇닷컴</h2>
+  <p>어떤 로봇 회사를 세울까?</p>
+  <div id="typeList"></div>
+</div>
+
+<script>
+(() => {
+  const C = window.CONFIG;
+  const COLS = C.board.cols, ROWS = C.board.rows, N = COLS * ROWS;
+  const SQ3 = Math.sqrt(3);
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const EMPTY = -1, ME = 0;
+
+  const $ = id => document.getElementById(id);
+  const board = $('board');
+
+  // 상태
+  const S = {
+    owner: new Array(N).fill(EMPTY),
+    hq: -1,
+    type: null,
+    turn: 0
+  };
+
+  // 좌표 (홀수 줄이 반 칸 오른쪽으로 밀린 odd-r 배치)
+  const idx = (c, r) => r * COLS + c;
+  const colOf = i => i % COLS, rowOf = i => Math.floor(i / COLS);
+
+  function neighbors(i) {
+    const c = colOf(i), r = rowOf(i);
+    const d = (r % 2)
+      ? [[-1,0],[1,0],[0,-1],[1,-1],[0,1],[1,1]]
+      : [[-1,0],[1,0],[-1,-1],[0,-1],[-1,1],[0,1]];
+    const out = [];
+    for (const [dc, dr] of d) {
+      const nc = c + dc, nr = r + dr;
+      if (nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS) out.push(idx(nc, nr));
+    }
+    return out;
+  }
+
+  function reachable() {
+    const set = new Set();
+    for (let i = 0; i < N; i++) {
+      if (S.owner[i] !== ME) continue;
+      for (const n of neighbors(i)) if (S.owner[n] === EMPTY) set.add(n);
+    }
+    return set;
+  }
+
+  // 칸 크기 : 남은 공간에 맞춰 계산 (가로 = 칸 6개 + 반 칸, 세로 = R × (1.5 × 줄 + 0.5))
+  let W = 56, R = W / SQ3;
+  function layout() {
+    const wrap = $('boardWrap');
+    const availW = Math.min(window.innerWidth, 390) - 16;
+    const availH = wrap.clientHeight - 8;
+    const byW = availW / (COLS + 0.5);
+    const byH = availH / ((1.5 * ROWS + 0.5) / SQ3);
+    W = Math.max(C.board.cellMin, Math.min(C.board.cellMax, byW, byH));
+    R = W / SQ3;
+    board.setAttribute('width', Math.ceil(W * (COLS + 0.5)));
+    board.setAttribute('height', Math.ceil(R * (1.5 * ROWS + 0.5)));
+  }
+
+  function center(i) {
+    const c = colOf(i), r = rowOf(i);
+    return [W * (c + 0.5 + (r % 2 ? 0.5 : 0)), R * (1 + 1.5 * r)];
+  }
+
+  function hexPoints(cx, cy, rad) {
+    const pts = [];
+    for (let k = 0; k < 6; k++) {
+      const a = Math.PI / 180 * (60 * k - 90);
+      pts.push((cx + rad * Math.cos(a)).toFixed(1) + ',' + (cy + rad * Math.sin(a)).toFixed(1));
+    }
+    return pts.join(' ');
+  }
+
+  // 판 그리기
+  let hexEls = [], hqImg = null, frame = 'a';
+  function buildBoard() {
+    layout();
+    board.innerHTML = '';
+    hexEls = [];
+    const rad = R - C.board.gap / 2;
+    for (let i = 0; i < N; i++) {
+      const [x, y] = center(i);
+      const p = document.createElementNS(SVGNS, 'polygon');
+      p.setAttribute('points', hexPoints(x, y, rad));
+      p.setAttribute('class', 'hex empty');
+      p.dataset.i = i;
+      board.appendChild(p);
+      hexEls.push(p);
+    }
+    hqImg = document.createElementNS(SVGNS, 'image');
+    hqImg.setAttribute('class', 'hq');
+    board.appendChild(hqImg);
+    paint();
+  }
+
+  function paint(popIdx) {
+    const reach = reachable();
+    for (let i = 0; i < N; i++) {
+      const el = hexEls[i];
+      let cls = 'hex ';
+      if (S.owner[i] === ME) cls += 'mine';
+      else if (reach.has(i)) cls += 'reach';
+      else cls += 'empty';
+      if (i === popIdx) cls += ' pop';
+      el.setAttribute('class', cls);
+    }
+    if (S.hq >= 0 && S.type) {
+      const [x, y] = center(S.hq);
+      const sz = W * 0.92;
+      hqImg.setAttribute('x', x - sz / 2);
+      hqImg.setAttribute('y', y - sz / 2);
+      hqImg.setAttribute('width', sz);
+      hqImg.setAttribute('height', sz);
+      hqImg.setAttribute('href', `assets/tile-${S.type.tile}-${frame}.png`);
+      hqImg.style.display = '';
+    } else {
+      hqImg.style.display = 'none';
+    }
+    $('sTurn').textContent = S.turn;
+    $('sCells').textContent = S.owner.filter(o => o === ME).length;
+    $('sType').textContent = S.type ? S.type.name : '-';
+  }
+
+  // 본사 타일 a/b 2프레임
+  setInterval(() => {
+    frame = frame === 'a' ? 'b' : 'a';
+    if (S.hq >= 0 && S.type && hqImg) hqImg.setAttribute('href', `assets/tile-${S.type.tile}-${frame}.png`);
+  }, 500);
+
+  // 턴 진행 (1단계 : 내 행동만)
+  function endTurn(popIdx) {
+    S.turn++;
+    paint(popIdx);
+  }
+
+  // 판 탭 : 인접 빈칸이면 뻗기
+  board.addEventListener('pointerup', e => {
+    const t = e.target;
+    if (!t.dataset || t.dataset.i === undefined || !S.type) return;
+    const i = +t.dataset.i;
+    if (S.owner[i] !== EMPTY || !reachable().has(i)) return;
+    S.owner[i] = ME;
+    endTurn(i);
+  });
+
+  $('bPass').addEventListener('click', () => { if (S.type) endTurn(); });
+  $('bNew').addEventListener('click', () => {
+    if (S.turn > 0 && !confirm('지금 판을 버리고 새로 시작할까?')) return;
+    newGame();
+  });
+
+  // 창업 : 판 가운데 근처 빈칸에 씨앗 1칸
+  function found(type) {
+    S.type = type;
+    const midC = (COLS - 1) / 2, midR = (ROWS - 1) / 2;
+    const cand = [];
+    for (let i = 0; i < N; i++) {
+      if (S.owner[i] !== EMPTY) continue;
+      if (Math.abs(colOf(i) - midC) <= 1 && Math.abs(rowOf(i) - midR) <= 1) cand.push(i);
+    }
+    const seed = cand[Math.floor(Math.random() * cand.length)];
+    S.owner[seed] = ME;
+    S.hq = seed;
+    $('pick').classList.add('hide');
+    paint(seed);
+  }
+
+  function newGame() {
+    S.owner.fill(EMPTY);
+    S.hq = -1; S.type = null; S.turn = 0;
+    paint();
+    $('pick').classList.remove('hide');
+  }
+
+  // 유형 고르기 화면
+  function buildPick() {
+    const list = $('typeList');
+    for (const t of C.types) {
+      const b = document.createElement('button');
+      b.className = 'typeBtn';
+      b.innerHTML =
+        `<img src="assets/tile-${t.tile}-a.png" alt="">` +
+        `<div><div class="nm">${t.name}</div>` +
+        `<div class="st">속도 ${t.speed.toFixed(1)} · 매출 ${t.price} · 등급 ${t.grade.toFixed(1)} · 저항 ${t.resist}</div></div>`;
+      b.addEventListener('click', () => found(t));
+      list.appendChild(b);
+    }
+  }
+
+  // 내 회사 색
+  const meColor = C.companyColors[0];
+  document.documentElement.style.setProperty('--me', meColor);
+  $('sChip').style.background = meColor;
+
+  buildPick();
+  buildBoard();
+  window.addEventListener('resize', buildBoard);
+})();
+</script>
+</body>
+</html>
