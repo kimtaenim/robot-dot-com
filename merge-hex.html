@@ -170,7 +170,7 @@
 <script>
 // 시제품 수치표 (확정되면 config.js로 옮김)
 const M = {
-  radius: 3,               // 가운데에서 3칸 반경의 육각 판 (37칸)
+  radius: 2,               // 가운데에서 2칸 반경의 육각 판 (19칸). ?r=3 이면 37칸
   turns: 100,              // 판 길이
   typesPerGame: 3,         // 한 판에 나오는 로봇 종류 수 (5종 중 무작위)
   seedChance: 0.1,         // 새 회사가 시드 단계로 나올 확률
@@ -195,6 +195,10 @@ const M = {
 };
 
 (() => {
+  // 시험용 : 주소 뒤 ?r=2&t=2 로 판 반경·로봇 종류 수 바꾸기
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('r')) M.radius = +qs.get('r');
+  if (qs.get('t')) M.typesPerGame = +qs.get('t');
   const RAD = M.radius;
   const $ = id => document.getElementById(id);
   const rnd = n => Math.floor(Math.random() * n);
