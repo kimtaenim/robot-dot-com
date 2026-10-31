@@ -85,9 +85,8 @@
   .s1 { background: #A8E0F0; }
   .s2 { background: #8FE3C0; }
   .s3 { background: #FFD27A; }
-  .s4 { background: #FF9F7A; }
-  .s5 { background: linear-gradient(135deg, #FF8AD8, #B58CFF 50%, #6FD3FF); }
-  .s5 .stg { background: #fff; }
+  .s4 { background: linear-gradient(135deg, #FF8AD8, #B58CFF 50%, #6FD3FF); }
+  .s4 .stg { background: #fff; }
 
   /* Robot Rush와 같은 들썩임 */
   .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
@@ -205,18 +204,18 @@ const M = {
   // 합병 규칙 : 'path' 빈칸으로 이어져 있으면 합병(가로막히지 않으면 됨), 'adj' 바로 옆만(?adj=1), 'any' 어디서든(?any=1)
   rule: 'path',
   startCash: 100,          // 시작 지갑
-  // 단계 : 같은 로봇·같은 단계 둘을 합치면 한 단계 위. 유니콘 둘을 합치면 상장.
+  // 단계 : 같은 로봇·같은 단계 둘을 합치면 한 단계 위. 유니콘 둘을 합치면 상장(마지막 단계에 닿는 순간 상장).
   // 놓을 때 그 회사 몸값만큼 돈이 나가고, 합병하면 (새 몸값 - 두 회사 몸값)만큼 들어옴.
   stages: [
     { name: '창업',    value: 10 },
     { name: '시드',    value: 25 },
     { name: '시리즈A', value: 60 },
     { name: '시리즈B', value: 150 },
-    { name: '시리즈C', value: 400 },
-    { name: '유니콘',  value: 1000 }
+    { name: '유니콘',  value: 400 },
+    { name: '상장',    value: 1000 }
   ],
-  ipoMul: 5,               // 상장 대금 = 유니콘 몸값 × 이 배수 (유니콘 둘 합쳐 상장이면 × 2)
-  ipoOnUnicorn: true,      // true면 유니콘이 되는 순간 상장. false면 유니콘 둘을 합쳐야 상장 (?ipo=0)
+  ipoMul: 5,               // 상장 대금 = 상장 단계 몸값 × 이 배수
+  ipoOnUnicorn: true,      // true면 마지막 단계(상장)에 닿는 순간 상장. false면 그 단계 둘을 더 합쳐야 상장 (?ipo=0)
   dumpRate: 0.5,           // 손해 매각 = 몸값의 이 비율. 판이 끝날 때 남은 회사도 이 비율로 계산
   types: [
     { key: 'arm',  name: '협동로봇',   tile: 'robot-cobot', grade: 1.0 },
@@ -413,7 +412,7 @@ const M = {
           a.el.remove();
           restyle(b);
           b.el.classList.remove('merged'); void b.el.offsetWidth; b.el.classList.add('merged');
-          floatAt(b, '+' + gain + (b.stage >= 3 ? ' ' + M.stages[b.stage].name + '!' : ''));
+          floatAt(b, '+' + gain + (b.stage >= TOP - 1 ? ' ' + M.stages[b.stage].name + '!' : ''));
         }, 120);
       }
     }
@@ -445,7 +444,7 @@ const M = {
     setTimeout(() => {
       $('overTitle').textContent = `레벨 ${S.level} 클리어!`;
       $('overScore').textContent = '+' + v;
-      $('overText').innerHTML = `${b.type.name} 회사 상장 · ${S.turn}턴 · 손해 매각 ${S.dumps}번<br>지갑 ${S.cash} (다음 레벨로 이어짐)`;
+      $('overText').innerHTML = `${b.type.name} 회사가 상장했어요 · ${S.turn}턴 · 손해 매각 ${S.dumps}번<br>지갑 ${S.cash} (다음 레벨로 이어져요)`;
       $('bRestart').textContent = `레벨 ${S.level + 1} 시작`;
       $('over').classList.remove('hide');
     }, 1400);
@@ -458,7 +457,7 @@ const M = {
     for (const t of boardTiles()) t.el.classList.add('pick');
     $('shWho').textContent = '손해 매각';
     $('shCost').textContent = '반값';
-    $('shHow').textContent = '놓을 곳도 합칠 곳도 없다';
+    $('shHow').textContent = '놓을 곳도 합칠 곳도 없어요';
     $('shTip').textContent = '팔 회사를 누르세요 (몸값의 ' + M.dumpRate * 100 + '%)';
     showSheet();
   }
@@ -491,7 +490,7 @@ const M = {
     $('shWho').textContent = `${t.type.name} ${M.stages[t.stage].name} 손해 매각`;
     $('shCost').textContent = dumpValue(t);
     $('shHow').textContent = `몸값 ${value(t)}의 ${M.dumpRate * 100}%`;
-    $('shTip').textContent = '같은 회사를 한 번 더 누르면 매각';
+    $('shTip').textContent = '같은 회사를 한 번 더 누르면 팔아요';
     showSheet();
   }
   function dump(t) {
@@ -660,10 +659,10 @@ const M = {
     const o = c && at(...c);
     if (c && !o && !isHub(...c) && isHub(d.t.q, d.t.r)) {
       if (placeable(d.t).some(([q, r]) => q === c[0] && r === c[1])) { placeTo(d.t, ...c); return; }
-      banner('다른 회사에 가로막혀 못 간다');
+      banner('다른 회사에 가로막혀 갈 수 없어요');
     } else if (o && canDropMerge(d.t, o)) { mergeInto(d.t, o); return; }
-    else if (c && !o && !isHub(d.t.q, d.t.r)) banner('이미 놓은 회사는 옮길 수 없다');
-    else if (o && o !== d.t && canMerge(d.t, o)) banner(M.rule === 'adj' ? '바로 옆 칸끼리만 합칠 수 있다' : '다른 회사에 가로막혀 못 간다');
+    else if (c && !o && !isHub(d.t.q, d.t.r)) banner('이미 놓은 회사는 옮길 수 없어요');
+    else if (o && o !== d.t && canMerge(d.t, o)) banner(M.rule === 'adj' ? '바로 옆 칸끼리만 합칠 수 있어요' : '다른 회사에 가로막혀 갈 수 없어요');
     place(d.t);
   }
   boardEl.addEventListener('pointerup', e => endDrag(e, false));
