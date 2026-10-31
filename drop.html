@@ -181,7 +181,13 @@
   .art.bob.swap img.b { animation-name: artB; }
   @keyframes artA { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 0; } }
   @keyframes artB { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 1; } }
-  @keyframes artBob { 0%, 100% { rotate: -14deg; translate: 0 0; } 25% { rotate: 0deg; translate: 0 -18%; } 50% { rotate: 14deg; translate: 0 0; } 75% { rotate: 0deg; translate: 0 -18%; } }
+  /* 들썩임 + 크기 변화 : 뛰어오를 때 길쭉하게, 내려앉을 때 납작하게 */
+  @keyframes artBob {
+    0%, 100% { rotate: -14deg; translate: 0 0; scale: 1.08 .92; }
+    25% { rotate: 0deg; translate: 0 -18%; scale: .94 1.08; }
+    50% { rotate: 14deg; translate: 0 0; scale: 1.08 .92; }
+    75% { rotate: 0deg; translate: 0 -18%; scale: .94 1.08; }
+  }
 
   #legendTypes { display: flex; gap: 10px; justify-content: center; font-size: 12px; }
   #legendTypes span { display: inline-flex; align-items: center; gap: 3px; }
@@ -919,6 +925,18 @@ const M = {
   const loadGot = () => { try { return new Set(JSON.parse(localStorage.getItem('rdc.cards') || '[]')); } catch (e) { return new Set(); } };
   const saveGot = d => { try { localStorage.setItem('rdc.cards', JSON.stringify([...d])); } catch (e) {} };
   const companyOf = card => DATA.companies[card.company] || {};
+  // 카드의 로봇 종류 : 제목·본문에 가장 먼저 나오는 로봇 이름으로. 없으면 회사 분류대로.
+  //   (예 : 4족 회사 유니트리의 휴머노이드 공연 카드는 휴머노이드)
+  const CARD_WORDS = { humanoid: ['휴머노이드'], quadruped: ['4족', '사족', '로봇개'], cobot: ['협동로봇'], service: ['청소로봇', '배송', '배달', '서빙', '물류', 'AMR'] };
+  function cardGroup(card) {
+    const text = (card.title || '') + ' ' + card.text;
+    let best = null, at = Infinity;
+    for (const [g, words] of Object.entries(CARD_WORDS)) for (const w of words) {
+      const i = text.indexOf(w);
+      if (i >= 0 && i < at) { at = i; best = g; }
+    }
+    return best || companyOf(card).type;
+  }
   Promise.all([fetch('data/cards.json').then(r => r.json()), fetch('data/companies.json').then(r => r.json())])
     .then(([cards, cos]) => { DATA.cards = cards; for (const c of cos) DATA.companies[c.id] = c; if (cardQueue.length) showCard(); })
     .catch(() => { DATA.failed = true; while (cardQueue.length) { const q = cardQueue.shift(); if (q.after) q.after(); } });
@@ -926,7 +944,7 @@ const M = {
   function pickCard(moment, type) {
     const group = ROBOT_GROUP[type.key], kinds = MOMENT[moment];
     const of = c => kinds.includes(c.type) && !used.has(c.id);
-    let pool = DATA.cards.filter(c => of(c) && companyOf(c).type === group);
+    let pool = DATA.cards.filter(c => of(c) && cardGroup(c) === group);
     if (!pool.length) pool = DATA.cards.filter(of);
     if (!pool.length) { for (const c of DATA.cards) if (kinds.includes(c.type)) used.delete(c.id); pool = DATA.cards.filter(of); }
     const card = pool[rnd(pool.length)];
@@ -956,7 +974,7 @@ const M = {
   function fillCard(card) {
     const co = companyOf(card);
     $('cEv').textContent = EVENT_NAME[card.type] || card.type;
-    $('cPic').src = `assets/${(GROUP[co.type] || GROUP.service).icon}-a.png`;
+    $('cPic').src = `assets/${(GROUP[cardGroup(card)] || GROUP.service).icon}-a.png`;
     $('cCo').textContent = co.name || '';
     $('cEn').textContent = [co.en, co.country].filter(Boolean).join(' · ');
     $('cTi').textContent = card.title || '';
