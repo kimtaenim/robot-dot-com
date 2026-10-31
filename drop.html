@@ -510,12 +510,13 @@ const M = {
     S.crisis = true;
     S.crises++;
     if (!SIM) { shake(); buzz([120, 60, 120]); sfx.crisis(); banner(title, 'crisis'); await sleep(900); }
+    const moved = [];
     for (let t = pickNext(); t; t = pickNext()) {
       if (!SIM) { t.el.classList.add('firesale'); await sleep(450); }
       sellTile(t, rate, label);
-      if (!SIM) await sleep(260);
+      if (!SIM) await sleep(200);
+      moved.push(...await gravity());   // 위 칸이 내려와야 자리가 났는지 알 수 있음
     }
-    const moved = await gravity();
     await resolve(moved);
     if (S.over) { S.crisis = false; return; }
     if (SIM) { S.crisis = false; return; }
@@ -525,10 +526,10 @@ const M = {
     paintHUD();
   }
 
-  // 자리 위기 : 가장 싼 회사부터 반값에, 떨어뜨릴 줄이 생길 때까지
-  const overflowSell = () => crisisFlow('자리 위기! 회사를 반값에 팔아 자리를 만듭니다', () => {
+  // 자리 위기 : 가장 비싼 회사부터 반값에, 떨어뜨릴 줄이 생길 때까지
+  const overflowSell = () => crisisFlow('자리 위기! 핵심 회사를 반값에 팔아 자리를 만듭니다', () => {
     if (!allFull()) return null;
-    return tiles().sort((a, b) => value(a) - value(b) || a.r - b.r)[0] || null;
+    return tiles().sort((a, b) => value(b) - value(a))[0] || null;
   }, M.dumpRate, '넘침');
 
   // 재정 위기 : 몸값 높은 회사부터 헐값에, 지갑이 0 이상이 될 때까지
