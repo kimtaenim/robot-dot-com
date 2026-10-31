@@ -295,6 +295,7 @@
   <div class="ms">로봇닷컴</div>
   <p>로봇 회사를 떨어뜨리고 합쳐서 유니콘으로 키우고, 상장시키세요.</p>
   <button id="mStart" class="pri">바로 시작</button>
+  <button id="mNew" style="display:none">처음부터 하기</button>
   <button id="mTut">튜토리얼 보기</button>
   <div class="mRow"><button id="mDex">도감</button><button id="mSound">소리 켬</button></div>
 </div></div>
@@ -334,7 +335,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.10.31-2';
+const BUILD_V = '2026.10.31-3';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -1199,6 +1200,8 @@ const M = {
     if (pendingStart) { pendingStart = false; setTimeout(() => queueCard('start', S.types[rnd(S.types.length)]), 300); }
   }
   $('mStart').addEventListener('click', closeMenu);
+  // 저장된 판을 버리고 레벨 1부터
+  $('mNew').addEventListener('click', () => { newGame(); closeMenu(); });
   $('mDex').addEventListener('click', () => { sfx.unlock(); openDex(); });
   $('mSound').addEventListener('click', toggleSound);
   $('bSound').addEventListener('click', toggleSound);
@@ -1244,7 +1247,7 @@ const M = {
   $('tSkip').addEventListener('click', closeMenu);
 
   paintSound();
-  if (load()) $('mStart').textContent = `이어서 하기 (레벨 ${S.level})`;
+  if (load()) { $('mStart').textContent = `이어서 하기 (레벨 ${S.level})`; $('mNew').style.display = ''; }
   else newGame();
   S.paused = true;
 
