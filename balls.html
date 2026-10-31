@@ -113,12 +113,13 @@
   .ball.sel { filter: brightness(1.15) drop-shadow(0 0 8px #FFE27A); }
   @keyframes pop { 0% { scale: .7; } 60% { scale: 1.15; } 100% { scale: 1; } }
   @keyframes pickGlow { from { filter: brightness(1); } to { filter: brightness(1.2) drop-shadow(0 0 6px #FF8A80); } }
-  /* 알록달록 : 창업 노랑 → 시드 주황 → 시리즈A 분홍 → 시리즈B 보라 → 유니콘 무지개 */
-  .s0 { --c: #FFE45C; --c2: #F5B700; --c3: #B07A00; --ink: #FFFFFF; }
-  .s1 { --c: #FFB15C; --c2: #F57A1F; --c3: #B04A00; --ink: #FFFFFF; }
-  .s2 { --c: #FF8FB0; --c2: #F0426E; --c3: #A8183F; --ink: #FFFFFF; }
-  .s3 { --c: #B79CFF; --c2: #7B4DF0; --c3: #4A1FA8; --ink: #FFFFFF; }
-  .s4 { --c3: #C8962A; --ink: #FFFFFF; background: radial-gradient(circle at 34% 28%, #fff 0%, #FFB3E6 22%, #C9A2FF 50%, #7FD8FF 78%, #5AA8E0 100%); border-color: #E8B94A; }
+  /* 알록달록 : 창업 노랑 → 시드 주황 → 시리즈A 분홍 → 시리즈B 보라 → 시리즈C 하늘 → 유니콘 무지개 */
+  .st-found { --c: #FFE45C; --c2: #F5B700; --c3: #B07A00; --ink: #FFFFFF; }
+  .st-seed  { --c: #FFB15C; --c2: #F57A1F; --c3: #B04A00; --ink: #FFFFFF; }
+  .st-a     { --c: #FF8FB0; --c2: #F0426E; --c3: #A8183F; --ink: #FFFFFF; }
+  .st-b     { --c: #B79CFF; --c2: #7B4DF0; --c3: #4A1FA8; --ink: #FFFFFF; }
+  .st-c     { --c: #7FE0F0; --c2: #1FA8C8; --c3: #0B6A85; --ink: #FFFFFF; }
+  .st-uni   { --c3: #C8962A; --ink: #FFFFFF; background: radial-gradient(circle at 34% 28%, #fff 0%, #FFB3E6 22%, #C9A2FF 50%, #7FD8FF 78%, #5AA8E0 100%); border-color: #E8B94A; }
 
   .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .art.bob { transform-origin: 50% 85%; animation: artBob 1s ease-in-out infinite; animation-delay: var(--d, 0s); }
@@ -213,28 +214,30 @@
 <script>
 // 시제품 수치표 (확정되면 config.js로 옮김)
 const M = {
-  levelTypes: [2],         // 레벨별 로봇 종류 수 (마지막 값이 이후 레벨에 계속). 3종은 헷갈려서 당분간 2종. ?t= 로 고정
-  // 레벨별 난이도 : seed 새 공이 시드로 나올 확률, crisis 재정 위기 한도(적자). 공 크기는 늘 같음.
-  // 첫 레벨은 쉽고 갈수록 어려움 (마지막 값이 이후 계속)
+  // 레벨별 난이도 : 유니콘까지 거치는 단계(ladder)와 로봇 종류 수(types). 공 크기는 늘 같음.
+  // 처음엔 시리즈A 다음 바로 유니콘, 나중엔 시리즈C까지 가야 유니콘. 마지막 값이 이후 레벨에 계속. ?t= 로 종류 수 고정
   levels: [
-    { seed: 0.5,  crisis: 700 },
-    { seed: 0.45, crisis: 600 },
-    { seed: 0.42, crisis: 500 },
-    { seed: 0.4,  crisis: 400 },
-    { seed: 0.37, crisis: 300 },
-    { seed: 0.35, crisis: 250 }
+    // spawn : 새 공이 창업·시드·시리즈A로 나올 비율
+    // 봇 기준 보통 실력의 레벨 길이 : 1레벨 약 40턴, 2·3레벨 약 90턴, 4·5레벨은 보스급(절반쯤만 깸)
+    { ladder: ['found', 'seed', 'a', 'uni', 'ipo'], types: 2, spawn: [0.6, 0.4, 0] },
+    { ladder: ['found', 'seed', 'a', 'b', 'uni', 'ipo'], types: 2, spawn: [0.6, 0.4, 0] },
+    { ladder: ['found', 'seed', 'a', 'uni', 'ipo'], types: 3, spawn: [0.6, 0.4, 0] },
+    { ladder: ['found', 'seed', 'a', 'b', 'uni', 'ipo'], types: 3, spawn: [0.4, 0.5, 0.1] },
+    { ladder: ['found', 'seed', 'a', 'b', 'c', 'uni', 'ipo'], types: 2, spawn: [0.3, 0.4, 0.3] }
   ],
+  crisisAt: 400,           // 적자가 이만큼을 넘으면 재정 위기
   startCash: 100,
-  // 단계 : 같은 로봇·같은 단계 공 둘이 부딪히면 한 단계 위(더 큰 공). 유니콘 둘이 합쳐지면 상장(레벨 클리어).
-  // r 은 판 폭에 대한 공 반지름 비율
-  stages: [
-    { name: '창업',    value: 10,   r: 0.059 },
-    { name: '시드',    value: 25,   r: 0.074 },
-    { name: '시리즈A', value: 60,   r: 0.093 },
-    { name: '시리즈B', value: 150,  r: 0.117 },
-    { name: '유니콘',  value: 400,  r: 0.146 },   // 지름이 창업의 2.5배
-    { name: '상장',    value: 1000, r: 0.17 }
-  ],
+  // 단계 : 같은 로봇·같은 단계 공 둘이 부딪히면 그 레벨 사다리의 다음 단계(더 큰 공). 유니콘 둘이 합쳐지면 상장(레벨 클리어).
+  // r 은 판 폭에 대한 공 반지름 비율. 단계마다 크기는 어느 레벨에서나 같음.
+  stageDefs: {
+    found: { name: '창업',    value: 10,   r: 0.059, ink: '#F5B700' },
+    seed:  { name: '시드',    value: 25,   r: 0.074, ink: '#F57A1F' },
+    a:     { name: '시리즈A', value: 60,   r: 0.093, ink: '#F0426E' },
+    b:     { name: '시리즈B', value: 150,  r: 0.117, ink: '#7B4DF0' },
+    c:     { name: '시리즈C', value: 360,  r: 0.131, ink: '#1FA8C8' },
+    uni:   { name: '유니콘',  value: 800,  r: 0.146, ink: '#C9A2FF' },   // 지름이 창업의 2.5배. 몸값은 앞 단계 둘보다 커야 합병이 이득
+    ipo:   { name: '상장',    value: 1000, r: 0.17,  ink: '#FFE27A' }
+  },
   ipoMul: 5,               // 상장 대금 = 상장 단계 몸값 × 이 배수
   dumpRate: 0.5,           // 손해 매각 = 몸값의 이 비율
   overflowSec: 1.5,        // 공이 위쪽 선을 이만큼 넘어 있으면 손해 매각
@@ -253,13 +256,12 @@ const M = {
 
 (() => {
   const qs = new URLSearchParams(location.search);
-  if (qs.get('t')) M.levelTypes = [+qs.get('t')];
+  if (qs.get('t')) M.levels.forEach(l => { l.types = +qs.get('t'); });
 
   const $ = id => document.getElementById(id);
   const rnd = n => Math.floor(Math.random() * n);
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const boxEl = $('box');
-  const TOP = M.stages.length - 1;
 
   const S = { balls: [], cash: 0, turn: 0, level: 1, types: [], seen: {}, cur: null, next: null, aimX: 0, ready: true, over: false, cleared: false, crisis: false, dumps: 0, nextId: 1, ipos: 0, firstIpo: 0, minCash: 0, overT: 0 };
 
@@ -274,11 +276,19 @@ const M = {
     paintLine();
   }
   const LV = () => M.levels[Math.min(S.level - 1, M.levels.length - 1)];
-  const radius = stage => M.stages[stage].r * BW;
-  const valueOf = (stage, type) => Math.round(M.stages[stage].value * type.grade);
+  // 새 공 단계 : 레벨의 spawn 비율대로 창업·시드·시리즈A
+  function spawnStage() {
+    const w = LV().spawn;
+    let x = Math.random() * w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < w.length; i++) { x -= w[i]; if (x < 0) return i; }
+    return 0;
+  }
+  const stageCls = stage => 'st-' + S.stages[stage].key;
+  const radius = stage => S.stages[stage].r * BW;
+  const valueOf = (stage, type) => Math.round(S.stages[stage].value * type.grade);
   const value = b => valueOf(b.stage, b.type);
   const dumpValue = b => Math.round(value(b) * M.dumpRate);
-  const newBall = () => ({ id: S.nextId++, type: S.types[rnd(S.types.length)], stage: Math.random() < LV().seed ? 1 : 0 });
+  const newBall = () => ({ id: S.nextId++, type: S.types[rnd(S.types.length)], stage: spawnStage() });
 
   function artHTML(tile) {
     return `<span class="art bob swap" style="--d:-${(Math.random() * 1.1).toFixed(2)}s">` +
@@ -287,10 +297,10 @@ const M = {
   function ballEl(b, parent = boxEl) {
     const el = document.createElement('div');
     const r = radius(b.stage);
-    el.className = `ball s${b.stage}`;
+    el.className = `ball ${stageCls(b.stage)}`;
     el.style.width = el.style.height = r * 2 + 'px';
     // 그림·무늬는 구르는 면에, 이름표는 늘 똑바로
-    el.innerHTML = `<span class="face">${artHTML(b.type.tile)}</span><span class="stg" style="font-size:${Math.max(8, r * 0.32)}px">${M.stages[b.stage].name}</span>`;
+    el.innerHTML = `<span class="face">${artHTML(b.type.tile)}</span><span class="stg" style="font-size:${Math.max(8, r * 0.32)}px">${S.stages[b.stage].name}</span>`;
     el._b = b;
     b.face = el.firstChild;
     parent.appendChild(el);
@@ -317,7 +327,7 @@ const M = {
     const nb = $('nextBall');
     nb.innerHTML = '';
     const mini = document.createElement('div');
-    mini.className = `ball s${S.next.stage}`;
+    mini.className = `ball ${stageCls(S.next.stage)}`;
     mini.style.cssText = 'position:relative;display:inline-block;width:20px;height:20px;border-width:2px;vertical-align:middle;box-shadow:none';
     mini.innerHTML = artHTML(S.next.type.tile);
     nb.appendChild(mini);
@@ -399,7 +409,7 @@ const M = {
     const stage = a.stage + 1;
     const x = (a.x * 1 + c.x) / 2, y = Math.max(a.y, c.y);
     if (!SIM) { a.el.remove(); c.el.remove(); }
-    if (stage === TOP) { ipo(a, x, y); return; }
+    if (stage === S.top) { ipo(a, x, y); return; }
     // 연쇄 : 직전 합병 뒤 0.8초 안에 또 합쳐지면 연쇄, 수입이 연쇄 횟수만큼 배로
     S.chain = clock - S.lastMerge < 0.8 ? S.chain + 1 : 1;
     S.lastMerge = clock;
@@ -410,24 +420,22 @@ const M = {
     if (!SIM) {
       ballEl(b).classList.add('pop');
       drawBall(b);
-      floatAt(x, y - b.r * 0.4, '+' + gain + (stage >= TOP - 1 ? ' ' + M.stages[stage].name + '!' : ''));
+      floatAt(x, y - b.r * 0.4, '+' + gain + (stage >= S.top - 1 ? ' ' + S.stages[stage].name + '!' : ''));
       shards(x, y, a.stage, 8 + stage * 3);
       sfx.merge(stage, S.chain);
       if (S.chain >= 2) {
         chainText(x, y - b.r, S.chain);
         shake();
         buzz([25, 30, 25 + S.chain * 10]);
-      } else buzz(stage >= TOP - 1 ? [40, 40, 80] : 18);
-      if (stage === TOP - 1) sfx.unicorn();
+      } else buzz(stage >= S.top - 1 ? [40, 40, 80] : 18);
+      if (stage === S.top - 1) sfx.unicorn();
       paintHUD();
       // 그 레벨에서 그 로봇이 처음 시리즈B·유니콘이 되면 실제 회사 성장 카드
-      const mk = a.type.key + stage;
-      if (stage >= 3 && !S.milestones.has(mk)) S.milestones.add(mk);
     }
   }
 
   function ipo(a, x, y) {
-    const v = valueOf(TOP, a.type) * M.ipoMul;
+    const v = valueOf(S.top, a.type) * M.ipoMul;
     S.cash += v;
     S.ipos++;
     if (!S.firstIpo) S.firstIpo = S.turn;
@@ -455,12 +463,12 @@ const M = {
   function paintLine() {
     if (SIM) return;
     $('line').style.top = lineY() + 'px';
-    $('lineTxt').textContent = S.cash < 0 ? `적자 ${S.cash} / 재정 위기 -${LV().crisis}` : '';
+    $('lineTxt').textContent = S.cash < 0 ? `적자 ${S.cash} / 재정 위기 -${M.crisisAt}` : '';
   }
 
   function settle() {
     paintHUD();
-    if (S.cash < -LV().crisis && !S.over && !S.crisis) fireSale();
+    if (S.cash < -M.crisisAt && !S.over && !S.crisis) fireSale();
   }
 
   // 공 하나를 팖 (rate : 몸값 대비 받는 비율)
@@ -558,8 +566,10 @@ const M = {
     S.turn = 0; S.over = false; S.cleared = false; S.dumps = 0; S.crisis = false; S.crises = 0; S.overT = 0;
     S.chain = 0; S.lastMerge = -9; S.milestones = new Set(); S.crashed = false; S.crashCard = false; S.paused = false;
     S.cur = null; S.next = null;
+    S.stages = LV().ladder.map(key => ({ key, ...M.stageDefs[key] }));
+    S.top = S.stages.length - 1;
     {
-      const k = M.levelTypes[Math.min(S.level - 1, M.levelTypes.length - 1)];
+      const k = LV().types;
       S.types = shuffle([...M.types]).sort((a, b) => S.seen[a.key] - S.seen[b.key]).slice(0, k);
       for (const t of S.types) S.seen[t.key]++;
     }
@@ -576,7 +586,6 @@ const M = {
   }
 
   // ---------- 연출 ----------
-  const INK = ['#F5B700', '#F57A1F', '#F0426E', '#7B4DF0', '#C9A2FF'];
   function shards(x, y, stage, n) {
     if (SIM) return;
     for (let i = 0; i < n; i++) {
@@ -584,8 +593,8 @@ const M = {
       el.className = 'shard';
       const ang = Math.random() * Math.PI * 2, dist = 30 + Math.random() * 50;
       el.style.left = x + 'px'; el.style.top = y + 'px';
-      el.style.background = i % 3 ? INK[stage] : '#FFFFFF';
-      if (stage === 4) el.style.background = ['#FFB3E6', '#C9A2FF', '#7FD8FF', '#FFE27A'][i % 4];
+      el.style.background = i % 3 ? S.stages[stage].ink : '#FFFFFF';
+      if (S.stages[stage].key === 'uni' || S.stages[stage].key === 'ipo') el.style.background = ['#FFB3E6', '#C9A2FF', '#7FD8FF', '#FFE27A'][i % 4];
       el.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
       el.style.setProperty('--dy', Math.sin(ang) * dist - 20 + 'px');
       el.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
