@@ -113,15 +113,12 @@
   .ball.sel { filter: brightness(1.15) drop-shadow(0 0 8px #FFE27A); }
   @keyframes pop { 0% { scale: .7; } 60% { scale: 1.15; } 100% { scale: 1; } }
   @keyframes pickGlow { from { filter: brightness(1); } to { filter: brightness(1.2) drop-shadow(0 0 6px #FF8A80); } }
-  /* Delft 블루 : 창업은 하얀 도자기, 단계가 오를수록 코발트가 짙어짐. 유니콘은 무지개 */
-  .s0 { --c: #FFFFFF; --c2: #EEF2F8; --c3: #3A5BA8; --ink: #3A5BA8; border-width: 2px; }
-  .s1 { --c: #B5CDF2; --c2: #6F94D6; --c3: #1E3F8F; --ink: #1E3F8F; border-width: 5px; }
-  .s2 { --c: #4A72C8; --c2: #1D3C94; --c3: #0E2562; --ink: #F4F7FF; }
-  .s3 { --c: #2246A0; --c2: #0C2163; --c3: #06123D; --ink: #F4F7FF; }
+  /* 알록달록 : 창업 노랑 → 시드 주황 → 시리즈A 분홍 → 시리즈B 보라 → 유니콘 무지개 */
+  .s0 { --c: #FFE45C; --c2: #F5B700; --c3: #B07A00; --ink: #FFFFFF; }
+  .s1 { --c: #FFB15C; --c2: #F57A1F; --c3: #B04A00; --ink: #FFFFFF; }
+  .s2 { --c: #FF8FB0; --c2: #F0426E; --c3: #A8183F; --ink: #FFFFFF; }
+  .s3 { --c: #B79CFF; --c2: #7B4DF0; --c3: #4A1FA8; --ink: #FFFFFF; }
   .s4 { --c3: #C8962A; --ink: #FFFFFF; background: radial-gradient(circle at 34% 28%, #fff 0%, #FFB3E6 22%, #C9A2FF 50%, #7FD8FF 78%, #5AA8E0 100%); border-color: #E8B94A; }
-  /* 로봇 그림 : 하얀 바탕에는 파란 붓그림, 짙은 바탕에는 하얀 유약 그림 */
-  .s0 .art img, .s1 .art img { filter: grayscale(1) sepia(1) saturate(5) hue-rotate(175deg) brightness(.55) contrast(1.6); }
-  .s2 .art img, .s3 .art img { filter: grayscale(1) brightness(1.6) contrast(.9) drop-shadow(0 0 1px rgba(10, 25, 70, .6)); }
 
   .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .art.bob { transform-origin: 50% 85%; animation: artBob 1s ease-in-out infinite; animation-delay: var(--d, 0s); }
@@ -217,7 +214,16 @@
 // 시제품 수치표 (확정되면 config.js로 옮김)
 const M = {
   levelTypes: [2],         // 레벨별 로봇 종류 수 (마지막 값이 이후 레벨에 계속). 3종은 헷갈려서 당분간 2종. ?t= 로 고정
-  seedChance: 0.4,         // 새 공이 시드 단계로 나올 확률
+  // 레벨별 난이도 : size 공 크기 배율, seed 새 공이 시드로 나올 확률, crisis 재정 위기 한도(적자).
+  // 첫 레벨은 쉽고 갈수록 어려움 (마지막 값이 이후 계속)
+  levels: [
+    { size: 0.8,  seed: 0.5,  crisis: 700 },
+    { size: 0.87, seed: 0.45, crisis: 600 },
+    { size: 0.93, seed: 0.42, crisis: 500 },
+    { size: 1.0,  seed: 0.4,  crisis: 400 },
+    { size: 1.06, seed: 0.37, crisis: 300 },
+    { size: 1.12, seed: 0.35, crisis: 250 }
+  ],
   startCash: 100,
   // 단계 : 같은 로봇·같은 단계 공 둘이 부딪히면 한 단계 위(더 큰 공). 유니콘 둘이 합쳐지면 상장(레벨 클리어).
   // r 은 판 폭에 대한 공 반지름 비율
@@ -234,7 +240,6 @@ const M = {
   overflowSec: 1.5,        // 공이 위쪽 선을 이만큼 넘어 있으면 손해 매각
   debtSqueeze: 0.02,       // 적자 100마다 천장(위쪽 선)이 판 높이의 이 비율만큼 내려옴
   debtSqueezeMax: 0.3,     // 천장이 내려오는 최대치 (판 높이 비율)
-  crisisAt: 300,           // 적자가 이만큼을 넘으면 재정 위기 : 몸값 높은 공부터 헐값에 팔려 나감
   fireSaleRate: 0.3,       // 재정 위기 헐값 = 몸값의 이 비율
   dropGap: 0.45,           // 떨어뜨린 뒤 다음 공을 들기까지 (초)
   gravity: 1800,           // 픽셀/초²
@@ -249,7 +254,6 @@ const M = {
 (() => {
   const qs = new URLSearchParams(location.search);
   if (qs.get('t')) M.levelTypes = [+qs.get('t')];
-  if (qs.get('seed')) M.seedChance = +qs.get('seed');
 
   const $ = id => document.getElementById(id);
   const rnd = n => Math.floor(Math.random() * n);
@@ -269,11 +273,12 @@ const M = {
     LINE = 8 + radius(1) * 2 + 10;   // 위쪽 선 : 들고 있는 공(창업·시드) 바로 아래
     paintLine();
   }
-  const radius = stage => M.stages[stage].r * BW;
+  const LV = () => M.levels[Math.min(S.level - 1, M.levels.length - 1)];
+  const radius = stage => M.stages[stage].r * BW * LV().size;
   const valueOf = (stage, type) => Math.round(M.stages[stage].value * type.grade);
   const value = b => valueOf(b.stage, b.type);
   const dumpValue = b => Math.round(value(b) * M.dumpRate);
-  const newBall = () => ({ id: S.nextId++, type: S.types[rnd(S.types.length)], stage: Math.random() < M.seedChance ? 1 : 0 });
+  const newBall = () => ({ id: S.nextId++, type: S.types[rnd(S.types.length)], stage: Math.random() < LV().seed ? 1 : 0 });
 
   function artHTML(tile) {
     return `<span class="art bob swap" style="--d:-${(Math.random() * 1.1).toFixed(2)}s">` +
@@ -450,12 +455,12 @@ const M = {
   function paintLine() {
     if (SIM) return;
     $('line').style.top = lineY() + 'px';
-    $('lineTxt').textContent = S.cash < 0 ? `적자 ${S.cash} / 재정 위기 -${M.crisisAt}` : '';
+    $('lineTxt').textContent = S.cash < 0 ? `적자 ${S.cash} / 재정 위기 -${LV().crisis}` : '';
   }
 
   function settle() {
     paintHUD();
-    if (S.cash < -M.crisisAt && !S.over && !S.crisis) fireSale();
+    if (S.cash < -LV().crisis && !S.over && !S.crisis) fireSale();
   }
 
   // 공 하나를 팖 (rate : 몸값 대비 받는 비율)
@@ -558,6 +563,7 @@ const M = {
       S.types = shuffle([...M.types]).sort((a, b) => S.seen[a.key] - S.seen[b.key]).slice(0, k);
       for (const t of S.types) S.seen[t.key]++;
     }
+    LINE = 8 + radius(1) * 2 + 10;   // 공 크기가 레벨마다 달라서 다시 계산
     if (!SIM) {
       layout();
       S.aimX = BW / 2;
@@ -571,7 +577,7 @@ const M = {
   }
 
   // ---------- 연출 ----------
-  const INK = ['#3A5BA8', '#1E3F8F', '#2246A0', '#0C2163', '#C9A2FF'];
+  const INK = ['#F5B700', '#F57A1F', '#F0426E', '#7B4DF0', '#C9A2FF'];
   function shards(x, y, stage, n) {
     if (SIM) return;
     for (let i = 0; i < n; i++) {
@@ -800,10 +806,11 @@ const M = {
   window.testOverflow = y => overflowSell(BH * y);
 
   // 시험용 봇 : 같은 공 위나 빈 곳을 노려 떨어뜨림, 화면 없이 물리만 돌림. window.simulate(판 수, 최대 턴)
-  window.simulate = (games, maxTurns = 400, skill = 0.8) => {
+  window.simulate = (games, maxTurns = 400, skill = 0.8, level = 1) => {
     const out = [];
     for (let g = 0; g < games; g++) {
       newGame(true);
+      if (level > 1) { S.level = level; startLevel(); }
       let guard = 0;
       while (!S.over && S.turn < maxTurns && guard++ < 400000) {
         if (S.ready && S.cur) {
