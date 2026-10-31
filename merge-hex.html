@@ -230,6 +230,8 @@ const M = {
   if (qs.get('r')) M.radius = +qs.get('r');
   if (qs.get('t')) M.typesPerGame = +qs.get('t');
   if (qs.get('adj')) M.adjacentOnly = qs.get('adj') === '1';
+  if (qs.get('n')) M.turns = +qs.get('n');
+  if (qs.get('seed')) M.seedChance = +qs.get('seed');
   if (qs.get('ipo')) M.ipoOnUnicorn = qs.get('ipo') === '1';
   // ?st=5 : 시리즈C 빼기, ?st=4 : 시리즈B·C 빼기
   if (qs.get('st')) { const keep = +qs.get('st'); while (M.stages.length > keep) M.stages.splice(M.stages.length - 2, 1); }
@@ -398,6 +400,7 @@ const M = {
 
   // 상장 : 판에서 사라지고 명예의 전당으로
   function ipo(a, b, v) {
+    if (!S.firstIpo) S.firstIpo = S.turn;
     S.cash += v;
     S.ipos++;
     S.grid.delete(key(b.q, b.r));
@@ -534,7 +537,7 @@ const M = {
   function newGame(sim) {
     SIM = !!sim;
     S.grid = new Map();
-    S.cash = M.startCash; S.turn = 0; S.over = false; S.ipos = 0; S.dumps = 0; S.hall = []; S.dumping = false; S.sel = null; S.earned = 0; S.minCash = M.startCash;
+    S.cash = M.startCash; S.turn = 0; S.over = false; S.ipos = 0; S.dumps = 0; S.hall = []; S.dumping = false; S.sel = null; S.earned = 0; S.minCash = M.startCash; S.firstIpo = 0;
     S.types = shuffle([...M.types]).slice(0, M.typesPerGame);
     if (!SIM) {
       $('legendTypes').innerHTML = S.types.map(t => `<span><img src="assets/${t.tile}-a.png" alt="">${t.name} ×${t.grade}</span>`).join('');
@@ -627,7 +630,9 @@ const M = {
       let guard = 0;
       while (!S.over && guard++ < 5000) {
         if (S.dumping === 'forced') {
-          const ts = boardTiles().sort((a, b) => value(a) - value(b));
+          // 같은 종류 이웃이 적고 단계가 낮은 회사부터 팖
+          const kin = t => DIRS.filter(([dq, dr]) => { const o = at(t.q + dq, t.r + dr); return o && o.type === t.type; }).length;
+          const ts = boardTiles().sort((a, b) => (kin(a) * 3 + a.stage) - (kin(b) * 3 + b.stage));
           dump(ts[0]);
           continue;
         }
@@ -640,20 +645,24 @@ const M = {
         if (!h) break;
         const tgt = boardTiles().find(b => canDropMerge(h, b));
         if (tgt) { mergeInto(h, tgt); continue; }
-        // 놓기 : 같은 회사 옆자리 > 같은 종류 옆자리 > 아무 데나
-        let best = null, bs = -1;
+        // 놓기 : 같은 회사 옆 > 한 단계 위 같은 종류 옆 > 같은 종류 옆, 다른 종류 옆은 피함
+        let best = null, bs = -Infinity;
         for (const [q, r] of empties()) {
           let sc = Math.random();
           for (const [dq, dr] of DIRS) {
             const o = at(q + dq, r + dr);
-            if (o && !isHub(o.q, o.r) && o.type === h.type) sc += o.stage === h.stage ? 10 : 2;
+            if (!o || isHub(o.q, o.r)) continue;
+            if (o.type !== h.type) sc -= 1.5;
+            else if (o.stage === h.stage) sc += 10;
+            else if (o.stage === h.stage + 1) sc += 4;
+            else sc += 2;
           }
           if (sc > bs) { bs = sc; best = [q, r]; }
         }
         if (best) placeTo(h, ...best);
         else startDump();
       }
-      out.push({ score: score(), ipos: S.ipos, dumps: S.dumps, cash: S.cash, earned: S.earned, minCash: S.minCash });
+      out.push({ score: score(), ipos: S.ipos, dumps: S.dumps, cash: S.cash, earned: S.earned, minCash: S.minCash, firstIpo: S.firstIpo });
     }
     M.adjacentOnly = keep;
     newGame();
