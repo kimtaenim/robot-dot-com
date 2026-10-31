@@ -100,8 +100,10 @@
   @keyframes artA { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 0; } }
   @keyframes artB { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 1; } }
   @keyframes artBob { 0%, 100% { rotate: -14deg; translate: 0 0; } 25% { rotate: 0deg; translate: 0 -18%; } 50% { rotate: 14deg; translate: 0 0; } 75% { rotate: 0deg; translate: 0 -18%; } }
-  .seg { pointer-events: none; }
-  .seg.owned { mix-blend-mode: multiply; }
+  /* 칸마다 깔린 로봇 로고 : Robot Rush처럼 들썩임. 빈칸은 회색, 차지한 칸은 그 색으로 물듦 */
+  #segLayer { position: absolute; inset: 0; pointer-events: none; }
+  .art.seg { will-change: transform; }
+  .art.seg.owned { mix-blend-mode: multiply; }
   .badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #111; color: #fff; font-family: 'IBM Plex Mono', monospace; font-weight: 700; }
   .art.face .badge { position: absolute; inset: 0; border: 3px solid var(--c); font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,.35); }
   #legend .badge { width: 18px; height: 18px; font-size: 8px; border: 2px solid; flex: none; }
@@ -200,6 +202,7 @@
 <div id="boardWrap">
   <div id="boardBox">
     <svg id="board"></svg>
+    <div id="segLayer"></div>
     <div id="hqLayer"></div>
   </div>
 </div>
@@ -437,26 +440,16 @@
       board.appendChild(p);
       hexEls.push(p);
     }
-    // 칸마다 그 시장의 로봇 로고를 회색으로 희미하게
-    const defs = document.createElementNS(SVGNS, 'defs');
-    defs.innerHTML = '<filter id="gray"><feColorMatrix type="saturate" values="0"/></filter>';
-    board.appendChild(defs);
+    // 칸마다 그 시장의 로봇 로고 (회색 그림, a/b 2프레임으로 들썩임)
     const lg = W * 0.62;
     segEls = [];
+    let html = '';
     for (let i = 0; i < N; i++) {
       const [x, y] = center(i);
-      const im = document.createElementNS(SVGNS, 'image');
-      im.setAttribute('class', 'seg');
-      im.setAttribute('href', `assets/${S.seg[i].tile}-a.png`);
-      im.setAttribute('x', x - lg / 2);
-      im.setAttribute('y', y - lg / 2);
-      im.setAttribute('width', lg);
-      im.setAttribute('height', lg);
-      im.setAttribute('filter', 'url(#gray)');
-      im.setAttribute('opacity', C.segments.opacity);
-      board.appendChild(im);
-      segEls.push(im);
+      html += artHTML('gray/' + S.seg[i].tile, 'seg').replace('style="', `style="left:${(x - lg / 2).toFixed(1)}px;top:${(y - lg / 2).toFixed(1)}px;width:${lg.toFixed(1)}px;height:${lg.toFixed(1)}px;`);
     }
+    $('segLayer').innerHTML = html;
+    segEls = [...$('segLayer').children];
     warnEls = [];
     for (let i = 0; i < N; i++) {
       const [x, y] = center(i);
@@ -495,8 +488,8 @@
       el.setAttribute('class', cls);
       el.style.fill = o >= 0 ? S.co[o].color : '';
       // 빈칸은 회색 로고, 차지한 칸은 그 색으로 물든 로고
-      segEls[i].setAttribute('class', o >= 0 ? 'seg owned' : 'seg');
-      segEls[i].setAttribute('opacity', o >= 0 ? C.segments.ownedOpacity : C.segments.opacity);
+      segEls[i].classList.toggle('owned', o >= 0);
+      segEls[i].style.opacity = o >= 0 ? C.segments.ownedOpacity : C.segments.opacity;
       el.style.transitionDelay = '';
       el.style.animationDelay = '';
     }
