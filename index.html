@@ -133,7 +133,8 @@
   .slot, .ball, .ball .face { clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
   .slot { position: absolute; background: #4A5662; }
   .col { position: absolute; border-radius: 12px; background: rgba(255,255,255,.07); pointer-events: none; display: none; }
-  .col.on { display: block; }
+  /* 헥사판에서는 고르는 줄 띠를 보이지 않음 */
+  .col.on { display: none; }
   .col.full { background: rgba(255, 90, 78, .16); }
   #dropRow { position: absolute; left: 0; right: 0; top: 0; border-bottom: 2px dashed rgba(255,255,255,.15); pointer-events: none; }
 
@@ -333,7 +334,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.10.31-1';
+const BUILD_V = '2026.10.31-2';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
