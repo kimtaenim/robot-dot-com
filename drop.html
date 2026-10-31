@@ -174,7 +174,20 @@
   .st-a     { --c: #FF8FB0; --c2: #F0426E; --c3: #A8183F; --ink: #FFFFFF; }
   .st-b     { --c: #B79CFF; --c2: #7B4DF0; --c3: #4A1FA8; --ink: #FFFFFF; }
   .st-c     { --c: #7FE0F0; --c2: #1FA8C8; --c3: #0B6A85; --ink: #FFFFFF; }
-  .st-uni   { --c3: #C8962A; --ink: #FFFFFF; background: radial-gradient(circle at 34% 28%, #fff 0%, #FFB3E6 22%, #C9A2FF 50%, #7FD8FF 78%, #5AA8E0 100%); border-color: #E8B94A; }
+  .st-uni   { --c3: #C8962A; --ink: #FFFFFF; background: #fff; border-color: #E8B94A; }
+  /* 유니콘 : 빨강에서 보라까지 무지개 띠가 흐르고, 별이 반짝임 */
+  .ball .rb { position: absolute; inset: 0; border-radius: inherit; z-index: 0; pointer-events: none;
+    background: linear-gradient(120deg, #FF4D4D, #FF9F1C, #FFE14D, #4DD67A, #3FA9F5, #5B5BE8, #A64DF0, #FF4D4D, #FF9F1C, #FFE14D);
+    background-size: 300% 300%; animation: rainbow 2.4s linear infinite; }
+  .ball .rb::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at 34% 28%, rgba(255,255,255,.7), rgba(255,255,255,0) 55%); }
+  @keyframes rainbow { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+  .st-uni { animation: uniGlow 1.2s ease-in-out infinite alternate; }
+  @keyframes uniGlow { from { box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 4px 0 var(--c3), 0 0 6px 1px rgba(255, 226, 122, .5); } to { box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 4px 0 var(--c3), 0 0 16px 4px rgba(255, 180, 240, .9); } }
+  .ball .tw { position: absolute; z-index: 5; color: #fff; pointer-events: none; text-shadow: 0 0 4px #fff, 0 0 8px #FFE27A; animation: twinkle 1.4s ease-in-out infinite; }
+  .ball .tw.t1 { left: 12%; top: 50%; font-size: 13px; }
+  .ball .tw.t2 { right: 10%; top: 14%; font-size: 11px; animation-delay: .5s; }
+  .ball .tw.t3 { right: 16%; bottom: 26%; font-size: 9px; animation-delay: .9s; }
+  @keyframes twinkle { 0%, 100% { opacity: 0; scale: .4; rotate: 0deg; } 50% { opacity: 1; scale: 1.15; rotate: 45deg; } }
 
   .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .art.bob { transform-origin: 50% 85%; animation: artBob 1s ease-in-out infinite; animation-delay: var(--d, 0s); }
@@ -310,7 +323,7 @@
 const M = {
   cols: 5,                 // 줄 수 (좁을수록 겹쳐 쌓여 어려움, ?c=)
   rows: 7,                 // 높이 (?h=)
-  // 레벨별 난이도 : 유니콘까지 거치는 단계(ladder), 로봇 종류 수(types), 새 회사가 창업·시드·시리즈A로 나올 비율(spawn).
+  // 레벨별 난이도 : 유니콘까지 거치는 단계(ladder), 로봇 종류 수(types), 새 회사가 창업·시드투자·시리즈A로 나올 비율(spawn).
   // 처음엔 시리즈A 다음 바로 유니콘, 나중엔 시리즈B·C까지. 마지막 값이 이후 레벨에 계속. ?t= 로 종류 수 고정
   levels: [
     { ladder: ['found', 'seed', 'a', 'uni', 'ipo'], types: 2, spawn: [0.6, 0.4, 0] },
@@ -325,7 +338,7 @@ const M = {
   // 떨어뜨릴 때 그 회사 몸값만큼 돈이 나가고, 합병하면 (새 몸값 - 두 몸값) × 연쇄 횟수만큼 들어옴.
   stageDefs: {
     found: { name: '창업',    value: 10,   ink: '#F5B700' },
-    seed:  { name: '시드',    value: 25,   ink: '#F57A1F' },
+    seed:  { name: '시드투자', value: 25,   ink: '#F57A1F' },
     a:     { name: '시리즈A', value: 60,   ink: '#F0426E' },
     b:     { name: '시리즈B', value: 150,  ink: '#7B4DF0' },
     c:     { name: '시리즈C', value: 360,  ink: '#1FA8C8' },
@@ -426,6 +439,7 @@ const M = {
   const STAGE_NUM = { found: '1', seed: '2', a: '3', b: '4', c: '5', uni: '★' };
   const STAGE_ART = { found: '46%', seed: '55%', a: '63%', b: '70%', c: '76%', uni: '78%' };
   const faceHTML = (tile, key, size) =>
+    (key === 'uni' ? '<span class="rb"></span><span class="tw t1">✦</span><span class="tw t2">✦</span><span class="tw t3">✦</span>' : '') +
     `<span class="face" style="--aw:${STAGE_ART[key]}">${artHTML(tile)}</span>` +
     `<span class="num" style="font-size:${Math.max(9, size * 0.2)}px">${STAGE_NUM[key]}</span>` +
     `<span class="stg" style="font-size:${Math.max(9, size * 0.19)}px">${M.stageDefs[key].name}</span>`;
@@ -444,6 +458,7 @@ const M = {
     t.el.className = `ball ${stageCls(t.stage)}`;
     applyTone(t.el, t);
     const key = S.stages[t.stage].key;
+    if (key === 'uni' && !t.el.querySelector('.rb')) t.el.insertAdjacentHTML('afterbegin', '<span class="rb"></span><span class="tw t1">✦</span><span class="tw t2">✦</span><span class="tw t3">✦</span>');
     t.el.querySelector('.stg').textContent = S.stages[t.stage].name;
     t.el.querySelector('.num').textContent = STAGE_NUM[key];
     t.el.querySelector('.face').style.setProperty('--aw', STAGE_ART[key]);
@@ -1129,7 +1144,7 @@ const M = {
     { t: '연쇄', v: () => `${demo('amr', 'seed', 50)}<span class="big">2연쇄!</span>${demo('amr', 'a', 58)}`,
       p: '합쳐진 회사가 내려오거나 커지면서 또 같은 회사와 닿으면 연쇄가 터져요. 연쇄일수록 버는 돈이 몇 배로 늘어요.' },
     { t: '유니콘과 상장', v: () => `${demo('hum', 'a', 46)}<span>→</span>${demo('hum', 'uni', 54)}<span>×2 → 상장</span>`,
-      p: '창업 → 시드 → 시리즈A → … → 유니콘으로 키워요. 유니콘 둘을 합치면 상장하고 레벨을 깨요. 레벨이 오르면 거쳐야 할 단계와 로봇 종류가 늘어요.' },
+      p: '창업 → 시드투자 → 시리즈A → … → 유니콘으로 키워요. 유니콘 둘을 합치면 상장하고 레벨을 깨요. 레벨이 오르면 거쳐야 할 단계와 로봇 종류가 늘어요.' },
     { t: '돈', v: () => `<span style="color:#F0426E">-10</span>${demo('legs', 'found', 54)}<span style="color:#1FA36B">+5</span>`,
       p: '회사를 떨어뜨릴 때는 그 몸값만큼 돈이 나가고, 합병하면 돈이 들어와요. 적자여도 계속할 수 있지만 너무 커지면 위험해요.' },
     { t: '위기', v: () => `${demo('legs', 'b', 58, 'firesale')}<span style="color:#C9443A">헐값!</span>`,
