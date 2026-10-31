@@ -41,7 +41,7 @@
 
   .tile {
     position: absolute; border-radius: 10px; overflow: hidden;
-    transition: transform .12s ease-in-out;
+    transition: translate .12s ease-in-out;
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
     box-shadow: inset 0 -3px 0 rgba(0,0,0,.18);
   }
@@ -235,7 +235,7 @@ const M = {
 
   function place(t) {
     const [x, y] = pos(t.r, t.c);
-    t.el.style.transform = `translate(${x}px, ${y}px)`;
+    t.el.style.translate = `${x}px ${y}px`;
   }
 
   function restyle(t) {
@@ -388,7 +388,7 @@ const M = {
     S.exits++;
     floatAt(t, '+' + v);
     S.grid[t.r][t.c] = null;
-    t.el.style.transition = 'transform .2s, opacity .2s';
+    t.el.style.transition = 'translate .2s, opacity .2s';
     t.el.style.opacity = '0';
     setTimeout(() => t.el.remove(), 200);
     S.turn++;

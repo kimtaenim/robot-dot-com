@@ -25,6 +25,7 @@
     padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
     user-select: none; -webkit-user-select: none;
     touch-action: none;
+    overscroll-behavior: none;
   }
 
   #hud { flex: none; text-align: center; padding: 8px 12px 4px; width: 100%; }
@@ -43,7 +44,7 @@
 
   .tile {
     position: absolute; overflow: hidden;
-    transition: transform .12s ease-in-out;
+    transition: translate .12s ease-in-out;
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
     box-shadow: inset 0 -3px 0 rgba(0,0,0,.18);
   }
@@ -52,6 +53,11 @@
   .tile.sel { filter: brightness(1.15) drop-shadow(0 0 6px #FFE27A); }
   .tile.new { animation: appear .18s ease-out; }
   .tile.merged { animation: merged .22s ease-out; }
+  /* 끌기 : 집은 회사는 손가락을 따라오고, 합칠 수 있는 회사는 빛남 */
+  .tile.drag { transition: none; z-index: 10; filter: drop-shadow(0 6px 10px rgba(0,0,0,.5)); scale: 1.08; }
+  .tile.can { animation: canGlow .5s ease-in-out infinite alternate; }
+  @keyframes canGlow { from { filter: brightness(1); } to { filter: brightness(1.35) drop-shadow(0 0 6px #FFE27A); } }
+  .slot.over { background: #6C7A87; }
   @keyframes appear { from { scale: .2; opacity: 0; } to { scale: 1; opacity: 1; } }
   @keyframes merged { 0% { scale: 1; } 50% { scale: 1.2; } 100% { scale: 1; } }
 
@@ -144,7 +150,7 @@
 <div id="main">
   <div id="board"></div>
   <div id="legendTypes"></div>
-  <div id="hint">여섯 방향으로 밀어서 같은 로봇·같은 단계끼리 합병. 회사를 누르면 매각.</div>
+  <div id="hint">끌어서 같은 로봇·같은 단계 위에 놓으면 합병, 빈칸에 놓으면 이동. 짧게 누르면 매각.</div>
 </div>
 
 <div id="actions">
@@ -174,6 +180,7 @@ const M = {
   turns: 100,              // 판 길이
   typesPerGame: 3,         // 한 판에 나오는 로봇 종류 수 (5종 중 무작위)
   seedChance: 0.1,         // 새 회사가 시드 단계로 나올 확률
+  adjacentOnly: false,     // true면 바로 옆 칸끼리만 합병 (?adj=1)
   // 단계 : 같은 로봇·같은 단계 둘이 합쳐지면 한 단계 위. 유니콘 둘이 합쳐지면 상장(엑싯).
   stages: [
     { name: '창업',    value: 10 },
@@ -199,6 +206,7 @@ const M = {
   const qs = new URLSearchParams(location.search);
   if (qs.get('r')) M.radius = +qs.get('r');
   if (qs.get('t')) M.typesPerGame = +qs.get('t');
+  if (qs.get('adj')) M.adjacentOnly = qs.get('adj') === '1';
   const RAD = M.radius;
   const $ = id => document.getElementById(id);
   const rnd = n => Math.floor(Math.random() * n);
@@ -267,7 +275,7 @@ const M = {
 
   function place(t) {
     const [x, y] = pos(t.q, t.r);
-    t.el.style.transform = `translate(${x}px, ${y}px)`;
+    t.el.style.translate = `${x}px ${y}px`;
   }
 
   function restyle(t) {
@@ -304,67 +312,50 @@ const M = {
 
   const canMerge = (a, b) => a && b && a.type === b.type && a.stage === b.stage;
 
+  const adjacent = (a, b) => DIRS.some(({ d }) => a.q + d[0] === b.q && a.r + d[1] === b.r);
+  // a를 b 위에 놓아 합병할 수 있나
+  const canDropMerge = (a, b) => a !== b && canMerge(a, b) && (!M.adjacentOnly || adjacent(a, b));
+
   function movesLeft() {
     if (empties().length) return true;
-    for (const t of S.grid.values()) for (const { d } of DIRS) if (canMerge(t, at(t.q + d[0], t.r + d[1]))) return true;
-    return false;
+    const ts = [...S.grid.values()];
+    return ts.some(a => ts.some(b => canDropMerge(a, b)));
   }
 
-  // 밀기 : 한 방향으로 끝까지. 같은 로봇·같은 단계를 만나면 합병(한 번 밀 때 회사당 한 번).
-  function move([dq, dr]) {
-    if (S.over) return;
-    closeSell();
-    // 미는 방향 앞쪽에 있는 회사부터 처리
-    const fwd = t => { const [x, y] = [t.q + t.r / 2, t.r]; return x * (dq + dr / 2) + y * dr * 0.75; };
-    const tiles = [...S.grid.values()].sort((a, b) => fwd(b) - fwd(a));
-    const merged = new Set(), removed = [], ups = [];
-    let moved = false;
-
-    for (const t of tiles) {
-      let q = t.q, r = t.r, into = null;
-      while (true) {
-        const nq = q + dq, nr = r + dr;
-        if (!inBoard(nq, nr)) break;
-        const o = at(nq, nr);
-        if (!o) { q = nq; r = nr; continue; }
-        if (canMerge(t, o) && !merged.has(o.id)) into = o;
-        break;
-      }
-      if (into) {
-        S.grid.delete(key(t.q, t.r));
-        t.q = into.q; t.r = into.r;
-        place(t);
-        removed.push(t);
-        merged.add(into.id);
-        ups.push(into);
-        moved = true;
-      } else if (q !== t.q || r !== t.r) {
-        S.grid.delete(key(t.q, t.r));
-        t.q = q; t.r = r;
-        S.grid.set(key(q, r), t);
-        place(t);
-        moved = true;
-      }
-    }
-    if (!moved) return;
-
+  // 행동 하나 끝 : 턴 +1, 새 회사 1개
+  function afterAction() {
     S.turn++;
+    spawn();
+    paintHUD();
+    if (S.turn >= M.turns) end('시간 종료');
+    else if (!movesLeft()) banner('꽉 막혔다 : 회사를 팔아 자리를 비우자');
+  }
+
+  // 빈칸으로 옮기기
+  function moveTo(t, q, r) {
+    S.grid.delete(key(t.q, t.r));
+    t.q = q; t.r = r;
+    S.grid.set(key(q, r), t);
+    place(t);
+    afterAction();
+  }
+
+  // 합병 : a가 b로 들어가 b가 한 단계 위로. 유니콘 둘이면 상장.
+  function mergeInto(a, b) {
+    S.grid.delete(key(a.q, a.r));
+    a.q = b.q; a.r = b.r;
+    place(a);
     setTimeout(() => {
-      for (const t of removed) t.el.remove();
-      for (const o of ups) {
-        if (o.stage === TOP) ipo(o);
-        else {
-          o.stage++;
-          restyle(o);
-          o.el.classList.remove('merged'); void o.el.offsetWidth; o.el.classList.add('merged');
-          if (o.stage >= 3) floatAt(o, M.stages[o.stage].name + '!');
-        }
+      a.el.remove();
+      if (b.stage === TOP) ipo(b);
+      else {
+        b.stage++;
+        restyle(b);
+        b.el.classList.remove('merged'); void b.el.offsetWidth; b.el.classList.add('merged');
+        if (b.stage >= 3) floatAt(b, M.stages[b.stage].name + '!');
       }
-      spawn();
-      paintHUD();
-      if (S.turn >= M.turns) end('시간 종료');
-      else if (!movesLeft()) banner('꽉 막혔다 : 회사를 팔아 자리를 비우자');
-    }, 130);
+      afterAction();
+    }, 120);
   }
 
   // 유니콘 둘이 합쳐지면 상장 : 큰돈을 받고 칸이 빔
@@ -406,7 +397,7 @@ const M = {
     S.exits++;
     floatAt(t, '+' + v);
     S.grid.delete(key(t.q, t.r));
-    t.el.style.transition = 'transform .2s, opacity .2s';
+    t.el.style.transition = 'translate .2s, opacity .2s';
     t.el.style.opacity = '0';
     setTimeout(() => t.el.remove(), 200);
     S.turn++;
@@ -472,32 +463,68 @@ const M = {
     paintHUD();
   }
 
-  // 밀기 입력 : 손가락 쓸기 방향을 가장 가까운 육각 방향으로. 키보드는 방향키 좌우·D A(좌우), E Q(위), C Z(아래).
-  let sx = 0, sy = 0, swiping = false;
-  document.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; swiping = true; });
-  document.addEventListener('pointerup', e => {
-    if (!swiping) return;
-    swiping = false;
-    const dx = e.clientX - sx, dy = e.clientY - sy;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) {
-      // 짧게 누름 = 탭 : 회사면 매각 창, 아니면 창 닫기
-      const el = e.target.closest('.tile');
-      if (el && el._t && at(el._t.q, el._t.r) === el._t) tapTile(el._t);
-      else if (!e.target.closest('button')) closeSell();
-      return;
+  // 끌기 입력 : 회사를 집어 손가락을 따라 움직이고, 놓은 칸에 따라 합병·이동. 짧게 누르면 매각 창.
+  let drag = null;
+  // 화면 좌표 → 가장 가까운 칸 (칸 안쪽일 때만)
+  function cellAt(clientX, clientY) {
+    const rect = boardEl.getBoundingClientRect();
+    const x = clientX - rect.left, y = clientY - rect.top;
+    let best = null, bd = Infinity;
+    for (const [q, r] of CELLS) {
+      const cx = OX + HW * (q + r / 2), cy = OY + HR * 1.5 * r;
+      const d = Math.hypot(x - cx, y - cy);
+      if (d < bd) { bd = d; best = [q, r]; }
     }
-    const ang = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
-    let best = DIRS[0], bd = 999;
-    for (const D of DIRS) {
-      const diff = Math.min(Math.abs(ang - D.a), 360 - Math.abs(ang - D.a));
-      if (diff < bd) { bd = diff; best = D; }
+    return bd <= HR ? best : null;
+  }
+  function slotEl(q, r) { return boardEl.children[CELLS.findIndex(([a, b]) => a === q && b === r)]; }
+  function clearOver() { for (const el of boardEl.querySelectorAll('.slot.over')) el.classList.remove('over'); }
+
+  boardEl.addEventListener('pointerdown', e => {
+    if (S.over || drag) return;
+    const el = e.target.closest('.tile');
+    if (!el || !el._t || at(el._t.q, el._t.r) !== el._t) return;
+    e.preventDefault();
+    const t = el._t;
+    const [x, y] = pos(t.q, t.r);
+    drag = { t, sx: e.clientX, sy: e.clientY, x, y, moved: false, id: e.pointerId };
+    boardEl.setPointerCapture(e.pointerId);
+  });
+
+  boardEl.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (!drag.moved && Math.hypot(dx, dy) < 10) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      closeSell();
+      drag.t.el.classList.add('drag');
+      for (const o of S.grid.values()) if (canDropMerge(drag.t, o)) o.el.classList.add('can');
     }
-    move(best.d);
+    drag.t.el.style.translate = `${drag.x + dx}px ${drag.y + dy}px`;
+    clearOver();
+    const c = cellAt(e.clientX, e.clientY);
+    if (c) slotEl(...c).classList.add('over');
   });
-  document.addEventListener('keydown', e => {
-    const k = { ArrowRight: 0, d: 0, c: 1, z: 2, ArrowLeft: 3, a: 3, q: 4, e: 5 }[e.key];
-    if (k !== undefined) { e.preventDefault(); move(DIRS[k].d); }
-  });
+
+  function endDrag(e, cancel) {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag;
+    drag = null;
+    clearOver();
+    for (const el of boardEl.querySelectorAll('.tile.can')) el.classList.remove('can');
+    d.t.el.classList.remove('drag');
+    if (!d.moved) { if (!cancel) tapTile(d.t); return; }
+    const c = cancel ? null : cellAt(e.clientX, e.clientY);
+    const o = c && at(...c);
+    if (c && !o) moveTo(d.t, ...c);
+    else if (o && canDropMerge(d.t, o)) mergeInto(d.t, o);
+    else place(d.t); // 제자리로
+  }
+  boardEl.addEventListener('pointerup', e => endDrag(e, false));
+  boardEl.addEventListener('pointercancel', e => endDrag(e, true));
+  // 판 밖을 누르면 매각 창 닫기
+  document.addEventListener('pointerdown', e => { if (!boardEl.contains(e.target) && !e.target.closest('button')) closeSell(); });
 
   $('bNew').addEventListener('click', () => { if (S.turn === 0 || S.over || confirm('지금 판을 버리고 새로 시작할까?')) newGame(); });
   $('bRestart').addEventListener('click', newGame);
