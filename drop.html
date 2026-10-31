@@ -152,7 +152,15 @@
     content: ''; position: absolute; left: 16%; top: 7%; width: 46%; height: 26%; border-radius: 50%;
     background: linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,0)); transform: rotate(-24deg); pointer-events: none; z-index: 2;
   }
-  .ball .art { position: absolute; z-index: 1; left: 15%; top: 10%; width: 70%; height: 70%; }
+  /* 로봇 그림 크기 : 단계마다 커짐 (--aw) */
+  .ball .face .art { --aw: inherit; }
+  .ball .art { position: absolute; z-index: 1; --aw: 70%; width: var(--aw); height: var(--aw); left: calc((100% - var(--aw)) / 2); top: calc((88% - var(--aw)) / 2); }
+  /* 단계 숫자 : 같은 그림 + 같은 숫자 = 합쳐짐 */
+  .ball .num { position: absolute; z-index: 4; left: 5%; top: 5%; width: 30%; height: 30%; border-radius: 50%; background: #fff; color: var(--c3, #8A6A10); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 700; line-height: 1; box-shadow: 0 1px 2px rgba(0,0,0,.35); }
+  .st-uni .num { background: #FFE27A; color: #8A5A00; }
+  /* 들고 있는 회사와 합쳐질 수 있는 회사 */
+  .ball.mate { animation: mate .6s ease-in-out infinite alternate; }
+  @keyframes mate { from { filter: brightness(1); box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 0 0 0 rgba(255,255,255,0); } to { filter: brightness(1.18); box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 0 0 4px rgba(255,255,255,.75); } }
   .ball .stg { position: absolute; z-index: 3; left: 50%; bottom: 6%; transform: translateX(-50%); box-shadow: 0 1px 2px rgba(0,0,0,.25); font-family: 'Sunflower', sans-serif; font-weight: 700; color: #1C3577; background: rgba(255,255,255,.9); border-radius: 5px; padding: 0 4px; line-height: 1.3; white-space: nowrap; }
   .ball.held { opacity: .95; transition: translate .08s ease-out; z-index: 5; }
   /* 사각 칸 뱃지 : 공과 같은 광택·테두리, 모서리만 둥근 사각 */
@@ -419,12 +427,19 @@ const M = {
     return `<span class="art bob swap" style="--d:-${(Math.random() * 1.1).toFixed(2)}s">` +
       `<img src="assets/${tile}-a.png" alt=""><img class="b" src="assets/${tile}-b.png" alt=""></span>`;
   }
+  // 단계 숫자와 로봇 그림 크기 (단계 이름으로 정해서 어느 레벨에서나 같음)
+  const STAGE_NUM = { found: '1', seed: '2', a: '3', b: '4', c: '5', uni: '★' };
+  const STAGE_ART = { found: '46%', seed: '55%', a: '63%', b: '70%', c: '76%', uni: '78%' };
+  const faceHTML = (tile, key, size) =>
+    `<span class="face" style="--aw:${STAGE_ART[key]}">${artHTML(tile)}</span>` +
+    `<span class="num" style="font-size:${Math.max(9, size * 0.2)}px">${STAGE_NUM[key]}</span>` +
+    `<span class="stg" style="font-size:${Math.max(9, size * 0.19)}px">${M.stageDefs[key].name}</span>`;
   function tileEl(t) {
     const el = document.createElement('div');
     el.className = `ball ${stageCls(t.stage)}`;
     applyTone(el, t);
     el.style.width = el.style.height = CELL + 'px';
-    el.innerHTML = `<span class="face">${artHTML(t.type.tile)}</span><span class="stg" style="font-size:${Math.max(9, CELL * 0.19)}px">${S.stages[t.stage].name}</span>`;
+    el.innerHTML = faceHTML(t.type.tile, S.stages[t.stage].key, CELL);
     el._t = t;
     boxEl.appendChild(el);
     t.el = el;
@@ -433,7 +448,10 @@ const M = {
   function restyle(t) {
     t.el.className = `ball ${stageCls(t.stage)}`;
     applyTone(t.el, t);
+    const key = S.stages[t.stage].key;
     t.el.querySelector('.stg').textContent = S.stages[t.stage].name;
+    t.el.querySelector('.num').textContent = STAGE_NUM[key];
+    t.el.querySelector('.face').style.setProperty('--aw', STAGE_ART[key]);
   }
   const place = t => { const [x, y] = px(t.c, t.r); t.el.style.translate = `${x}px ${y}px`; };
 
@@ -471,6 +489,8 @@ const M = {
     if (SIM) return;
     if (S.cur && S.cur.el) { const [x, y] = px(S.col, -1); S.cur.el.style.translate = `${x}px ${y}px`; }
     colEls.forEach((ce, i) => { ce.classList.toggle('on', i === S.col && !S.busy); ce.classList.toggle('full', i === S.col && colFull(i)); });
+    // 합쳐질 수 있는 회사 깜빡임
+    for (const o of tiles()) if (o.el) o.el.classList.toggle('mate', !!(S.cur && !S.busy && same(o, S.cur)));
     // 떨어질 자리에 반투명 그림자
     if (ghostEl) {
       const show = S.cur && !S.busy && !colFull(S.col);
@@ -1123,14 +1143,13 @@ const M = {
   function demo(typeKey, stageKey, size = 58, extra = '') {
     const ty = M.types.find(t => t.key === typeKey), sh = M.shade[stageKey];
     const vars = sh ? `--c:hsl(${ty.hue} ${sh[1] * ty.sat}% ${sh[0]}%);--c2:hsl(${ty.hue} ${Math.min(100, sh[1] * ty.sat + 10)}% ${sh[0] - 14}%);--c3:hsl(${ty.hue} ${Math.min(100, sh[1] * ty.sat + 12)}% ${Math.max(14, sh[0] - 34)}%);` : '';
-    return `<div class="ball st-${stageKey} ${extra}" style="${vars}width:${size}px;height:${size}px"><span class="face">${artHTML(ty.tile)}</span>` +
-      `<span class="stg" style="font-size:${Math.max(9, size * 0.19)}px">${M.stageDefs[stageKey].name}</span></div>`;
+    return `<div class="ball st-${stageKey} ${extra}" style="${vars}width:${size}px;height:${size}px">${faceHTML(ty.tile, stageKey, size)}</div>`;
   }
   const TUT = [
     { t: '떨어뜨리기', v: () => `<span>👆</span>${demo('arm', 'found')}<span class="big">↓</span>`,
       p: '판 위에서 손가락을 좌우로 움직여 줄을 고르고, 떼면 그 줄 맨 아래까지 떨어져요. 위의 "다음"에서 다음에 올 회사를 미리 볼 수 있어요.' },
     { t: '합병', v: () => `${demo('arm', 'found', 50)}+${demo('arm', 'found', 50)}<span class="big">→</span>${demo('arm', 'seed', 58)}`,
-      p: '같은 로봇, 같은 단계 회사가 위아래나 옆으로 닿으면 떨어뜨린 칸으로 합쳐져 한 단계 올라가요. 양쪽에 둘이 닿으면 한꺼번에 두 단계! 같은 색 계열이면 같은 로봇이고, 진할수록 높은 단계예요.' },
+      p: '같은 그림에 같은 숫자인 회사가 위아래나 옆으로 닿으면, 떨어뜨린 칸으로 합쳐져 숫자가 하나 올라가요. 양쪽에 둘이 닿으면 한꺼번에 두 단계! 들고 있는 회사와 합쳐질 수 있는 회사는 판에서 반짝여요.' },
     { t: '연쇄', v: () => `${demo('amr', 'seed', 50)}<span class="big">2연쇄!</span>${demo('amr', 'a', 58)}`,
       p: '합쳐진 회사가 내려오거나 커지면서 또 같은 회사와 닿으면 연쇄가 터져요. 연쇄일수록 버는 돈이 몇 배로 늘어요.' },
     { t: '유니콘과 상장', v: () => `${demo('hum', 'a', 46)}<span>→</span>${demo('hum', 'uni', 54)}<span>×2 → 상장</span>`,
