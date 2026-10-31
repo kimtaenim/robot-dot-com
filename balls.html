@@ -239,6 +239,7 @@ const M = {
   overflowSec: 1.5,        // 공이 위쪽 선을 이만큼 넘어 있으면 손해 매각
   debtSqueeze: 0.02,       // 적자 100마다 천장(위쪽 선)이 판 높이의 이 비율만큼 내려옴
   debtSqueezeMax: 0.3,     // 천장이 내려오는 최대치 (판 높이 비율)
+  bankruptAt: 300,         // 적자가 이만큼을 넘으면 부도 : 그 레벨을 다시 (지갑은 레벨 시작 때로)
   dropGap: 0.45,           // 떨어뜨린 뒤 다음 공을 들기까지 (초)
   gravity: 1800,           // 픽셀/초²
   types: [
@@ -454,11 +455,30 @@ const M = {
   function paintLine() {
     if (SIM) return;
     $('line').style.top = lineY() + 'px';
-    $('lineTxt').textContent = S.cash < 0 ? `적자 ${S.cash} : 천장이 내려와요` : '';
+    $('lineTxt').textContent = S.cash < 0 ? `적자 ${S.cash} / 부도 -${M.bankruptAt}` : '';
   }
 
   function settle() {
     paintHUD();
+    if (S.cash < -M.bankruptAt && !S.over) bankrupt();
+  }
+
+  // 부도 : 그 레벨 실패. 위기·폐업 카드를 보고 같은 레벨을 다시.
+  function bankrupt() {
+    S.over = true; S.failed = true;
+    if (SIM) return;
+    stopSell();
+    shake(); buzz([120, 60, 120, 60, 200]); sfx.bankrupt();
+    banner(`부도! 적자가 -${M.bankruptAt}을 넘었어요`);
+    const showFail = () => setTimeout(() => {
+      $('overTitle').textContent = `부도! 레벨 ${S.level} 실패`;
+      $('overScore').textContent = S.cash;
+      $('overScore').style.color = '#FF8A80';
+      $('overText').innerHTML = `${S.turn}턴 · 손해 매각 ${S.dumps}번<br>지갑은 이 레벨을 시작할 때(${S.levelCash})로 돌아가요`;
+      $('bRestart').textContent = `레벨 ${S.level} 다시`;
+      $('over').classList.remove('hide');
+    }, 200);
+    setTimeout(() => queueCard('fail', S.types[rnd(S.types.length)], showFail), 900);
   }
 
   // 매각 모드 : 공을 누르면 가격표, 한 번 더 누르면 반값에 팜. 넘쳤을 때는 저절로 켜지고 팔 때까지 못 끔.
@@ -547,16 +567,20 @@ const M = {
     S.seen = Object.fromEntries(M.types.map(t => [t.key, 0]));
     startLevel();
   }
-  function startLevel() {
+  function startLevel(retry) {
     for (const b of S.balls) if (b.el) b.el.remove();
     if (S.cur && S.cur.el) S.cur.el.remove();
     S.balls = []; timers.length = 0;
-    S.turn = 0; S.over = false; S.cleared = false; S.dumps = 0; S.selling = false; S.sel = null; S.overT = 0;
+    S.turn = 0; S.over = false; S.cleared = false; S.failed = false; S.dumps = 0; S.selling = false; S.sel = null; S.overT = 0;
     S.chain = 0; S.lastMerge = -9; S.milestones = new Set(); S.crashed = false; S.crashCard = false; S.paused = false;
     S.cur = null; S.next = null;
-    const k = M.levelTypes[Math.min(S.level - 1, M.levelTypes.length - 1)];
-    S.types = shuffle([...M.types]).sort((a, b) => S.seen[a.key] - S.seen[b.key]).slice(0, k);
-    for (const t of S.types) S.seen[t.key]++;
+    if (retry) S.cash = S.levelCash;   // 부도 뒤 다시 : 같은 로봇 짝, 지갑은 레벨 시작 때로
+    else {
+      const k = M.levelTypes[Math.min(S.level - 1, M.levelTypes.length - 1)];
+      S.types = shuffle([...M.types]).sort((a, b) => S.seen[a.key] - S.seen[b.key]).slice(0, k);
+      for (const t of S.types) S.seen[t.key]++;
+      S.levelCash = S.cash;
+    }
     if (!SIM) {
       layout();
       S.aimX = BW / 2;
@@ -621,6 +645,7 @@ const M = {
       unicorn: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.25, 'triangle', 0.16, null, 0.08 * i)),
       ipo: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i === 5 ? 0.6 : 0.18, 'square', 0.08, null, 0.12 * i)),
       sell: () => tone(400, 0.15, 'sawtooth', 0.07, 200),
+      bankrupt: () => [392, 330, 262, 196].forEach((f, i) => tone(f, i === 3 ? 0.7 : 0.22, 'sawtooth', 0.09, null, 0.18 * i)),
       card: () => tone(1320, 0.12, 'sine', 0.1, 1760)
     };
   })();
@@ -632,8 +657,9 @@ const M = {
   // 게임 순간마다 쓰는 카드 묶음 : 175장이 다 나오게
   const MOMENT = {
     start: ['found', 'market', 'regulate'],              // 레벨 시작
-    sell: ['sell', 'merge', 'steal', 'crash', 'close'],  // 매각
-    end: ['ipo', 'grow']                                 // 레벨 끝 (상장)
+    sell: ['sell', 'merge', 'steal'],     // 매각
+    end: ['ipo', 'grow'],                 // 레벨 끝 : 상장
+    fail: ['crash', 'close']              // 레벨 끝 : 부도
   };
   const GROUP = {
     cobot: { name: '협동로봇', icon: 'robot-cobot' },
@@ -803,10 +829,15 @@ const M = {
     if (S.selling) stopSell(); else startSell(false);
   });
   $('bNew').addEventListener('click', () => { if ((S.turn === 0 && S.level === 1) || confirm('레벨 1부터 새로 시작할까요?')) newGame(); });
-  $('bRestart').addEventListener('click', () => { if (S.cleared) { S.level++; startLevel(); } else newGame(); });
+  $('bRestart').addEventListener('click', () => {
+    $('overScore').style.color = '';
+    if (S.cleared) { S.level++; startLevel(); }
+    else if (S.failed) startLevel(true);
+    else newGame();
+  });
 
   // 시험용 봇 : 같은 공 위나 빈 곳을 노려 떨어뜨림, 화면 없이 물리만 돌림. window.simulate(판 수, 최대 턴)
-  window.simulate = (games, maxTurns = 400) => {
+  window.simulate = (games, maxTurns = 400, skill = 0.8) => {
     const out = [];
     for (let g = 0; g < games; g++) {
       newGame(true);
@@ -820,13 +851,13 @@ const M = {
         if (S.ready && S.cur) {
           const same = S.balls.filter(b => b.type === S.cur.type && b.stage === S.cur.stage).sort((a, b) => (a.y - a.r) - (b.y - b.r));
           const r = radius(S.cur.stage);
-          S.aimX = same.length && Math.random() < 0.8 ? same[0].x + (Math.random() - 0.5) * r : r + Math.random() * (BW - 2 * r);
+          S.aimX = same.length && Math.random() < skill ? same[0].x + (Math.random() - 0.5) * r : r + Math.random() * (BW - 2 * r);
           S.aimX = Math.max(r + 2, Math.min(BW - r - 2, S.aimX));
           drop();
         }
         step(1 / 120);
       }
-      out.push({ firstIpo: S.firstIpo, dumps: S.dumps, turn: S.turn, minCash: S.minCash });
+      out.push({ firstIpo: S.firstIpo, dumps: S.dumps, turn: S.turn, minCash: S.minCash, failed: !!S.failed });
     }
     newGame();
     return out;
