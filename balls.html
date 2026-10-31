@@ -21,8 +21,8 @@
   #hud { flex: none; text-align: center; padding: 8px 12px 4px; width: 100%; }
   #title { font-family: 'Rye', serif; font-size: 24px; letter-spacing: 1px; line-height: 1.1; }
   #subtitle { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 13px; opacity: .85; margin-top: 2px; }
-  #stats { display: flex; justify-content: center; gap: 6px; margin-top: 6px; font-size: 14px; }
-  .stat { background: var(--panel); border-radius: 8px; padding: 3px 9px; display: flex; gap: 6px; align-items: baseline; }
+  #stats { display: flex; justify-content: center; gap: 4px; margin-top: 6px; font-size: 13px; white-space: nowrap; }
+  .stat { background: var(--panel); border-radius: 8px; padding: 3px 7px; display: flex; gap: 4px; align-items: center; }
   .stat b { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 16px; }
   .stat.cash b { color: #FFE27A; }
   .stat.cash.red { background: #8E2A24; animation: urgent .6s ease-in-out infinite alternate; }
@@ -30,23 +30,36 @@
   @keyframes urgent { from { opacity: 1; } to { opacity: .6; } }
 
   #main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 6px; width: 100%; padding-top: 4px; }
-  #box { position: relative; background: #3E4852; border-radius: 14px; box-shadow: 0 0 0 4px #2E363E, 0 10px 24px rgba(0,0,0,.35); overflow: hidden; }
+  #box { flex: none; position: relative; background: #3E4852; border-radius: 14px; box-shadow: 0 0 0 4px #2E363E, 0 10px 24px rgba(0,0,0,.35); overflow: hidden; }
   #line { position: absolute; left: 0; right: 0; border-top: 2px dashed rgba(255, 138, 128, .55); pointer-events: none; }
   #line.warn { border-top-color: #FF5A4E; animation: urgent .3s ease-in-out infinite alternate; }
   #guide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dotted rgba(255,255,255,.18); pointer-events: none; }
-  #nextBox { position: absolute; right: 8px; top: 6px; font-size: 11px; text-align: center; opacity: .85; z-index: 4; pointer-events: none; }
 
-  .ball { position: absolute; left: 0; top: 0; border-radius: 50%; will-change: translate; box-shadow: inset 0 -4px 0 rgba(0,0,0,.15), 0 2px 3px rgba(0,0,0,.25); }
-  .ball .art { position: absolute; left: 15%; top: 10%; width: 70%; height: 70%; }
-  .ball .stg { position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); font-family: 'Sunflower', sans-serif; font-weight: 700; color: #1E252B; background: rgba(255,255,255,.75); border-radius: 5px; padding: 0 4px; line-height: 1.3; white-space: nowrap; }
+  /* 공 = 입체 뱃지 : 빛 받는 볼록면 + 진한 테두리 + 안쪽 흰 링 + 윗부분 광택 + 그림자 */
+  .ball {
+    position: absolute; left: 0; top: 0; border-radius: 50%; will-change: translate;
+    background: radial-gradient(circle at 34% 28%, #fff 0%, var(--c) 42%, var(--c2) 100%);
+    border: 3px solid var(--c3);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), inset 0 -6px 8px rgba(0,0,0,.22), 0 4px 0 var(--c3), 0 6px 8px rgba(0,0,0,.35);
+  }
+  .ball::after {
+    content: ''; position: absolute; left: 16%; top: 7%; width: 46%; height: 26%; border-radius: 50%;
+    background: linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,0)); transform: rotate(-24deg); pointer-events: none; z-index: 2;
+  }
+  .ball .art { position: absolute; z-index: 1; left: 15%; top: 10%; width: 70%; height: 70%; }
+  .ball .stg { position: absolute; z-index: 3; left: 50%; bottom: 6%; transform: translateX(-50%); box-shadow: 0 1px 2px rgba(0,0,0,.25); font-family: 'Sunflower', sans-serif; font-weight: 700; color: #1E252B; background: rgba(255,255,255,.75); border-radius: 5px; padding: 0 4px; line-height: 1.3; white-space: nowrap; }
   .ball.held { opacity: .92; }
   .ball.pop { animation: pop .25s ease-out; }
   .ball.pick { animation: pickGlow .55s ease-in-out infinite alternate; }
   .ball.sel { filter: brightness(1.15) drop-shadow(0 0 8px #FFE27A); }
   @keyframes pop { 0% { scale: .7; } 60% { scale: 1.15; } 100% { scale: 1; } }
   @keyframes pickGlow { from { filter: brightness(1); } to { filter: brightness(1.2) drop-shadow(0 0 6px #FF8A80); } }
-  .s0 { background: #C9D3DB; } .s1 { background: #A8E0F0; } .s2 { background: #8FE3C0; } .s3 { background: #FFD27A; }
-  .s4 { background: radial-gradient(circle at 35% 30%, #FFD6F2, #FF8AD8 35%, #B58CFF 65%, #6FD3FF); }
+  .s0 { --c: #C9D3DB; --c2: #8E9BA6; --c3: #6E7A85; }
+  .s1 { --c: #9ED9F0; --c2: #4FA9CF; --c3: #2F7FA3; }
+  .s2 { --c: #8FE3C0; --c2: #3DB487; --c3: #23855F; }
+  .s3 { --c: #FFD27A; --c2: #E8A23A; --c3: #B87518; }
+  /* 유니콘 : 무지개 볼록면 + 금테 */
+  .s4 { --c3: #C8962A; background: radial-gradient(circle at 34% 28%, #fff 0%, #FFB3E6 22%, #C9A2FF 50%, #7FD8FF 78%, #5AA8E0 100%); border-color: #E8B94A; }
 
   .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .art.bob { transform-origin: 50% 85%; animation: artBob 1s ease-in-out infinite; animation-delay: var(--d, 0s); }
@@ -62,13 +75,7 @@
   #legendTypes span { display: inline-flex; align-items: center; gap: 3px; }
   #legendTypes img { width: 22px; height: 22px; }
   #hint { font-size: 12.5px; opacity: .8; text-align: center; padding: 0 16px; }
-  #hall { width: 100%; max-width: 370px; text-align: center; }
-  #hall .list { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; min-height: 26px; }
-  #hall .item { display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(135deg, #8A3D7A, #5541A8); border-radius: 8px; padding: 2px 8px 2px 4px; font-size: 12px; }
-  #hall .item img { width: 22px; height: 22px; }
-  #hall .item b { font-family: 'IBM Plex Mono', monospace; color: #FFE27A; }
-  #hall .none { font-size: 12px; opacity: .5; }
-  #main.sheet #legendTypes, #main.sheet #hint, #main.sheet #hall { display: none; }
+  #main.sheet #legendTypes, #main.sheet #hint { display: none; }
 
   #actions { flex: none; display: flex; gap: 6px; padding: 6px 10px 10px; width: 100%; max-width: 390px; }
   #actions button { flex: 1; height: 46px; border: none; border-radius: 10px; background: var(--panel); color: var(--fg); font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; }
@@ -81,13 +88,16 @@
   @keyframes banner { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 25% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -70%) scale(1); } }
 
   /* 매각 창 : 판 아래 안내문 자리를 대신 차지 */
-  #sellSheet { pointer-events: none; width: calc(100% - 20px); max-width: 370px; margin: 0 auto; background: #2E363E; border: 3px solid #FF5A4E; border-radius: 16px; padding: 8px 14px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,.45); animation: sheetIn .2s ease-out; }
+  #sellSheet { flex: none; pointer-events: none; width: calc(100% - 20px); max-width: 370px; margin: 0 auto; background: #2E363E; border: 3px solid #FF5A4E; border-radius: 16px; padding: 6px 14px 8px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,.45); animation: sheetIn .2s ease-out; }
   #sellSheet.hide { display: none; }
   @keyframes sheetIn { from { transform: translateY(20px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
   #sellSheet .who { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 16px; }
   #sellSheet .big { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 34px; line-height: 1.05; color: #FFE27A; }
   #sellSheet .how { font-size: 12px; opacity: .75; }
   #sellSheet .tip { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 14px; color: #FF8A80; margin-top: 2px; }
+  #bIgnore { pointer-events: auto; margin-top: 6px; height: 38px; padding: 0 18px; border: none; border-radius: 19px; background: #5A6570; color: var(--fg); font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; }
+  #bIgnore:active { transform: scale(.95); }
+  #bIgnore.hide { display: none; }
 
   #over { position: fixed; inset: 0; z-index: 30; background: rgba(40, 47, 54, .94); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 20px; }
   #over.hide { display: none; }
@@ -106,7 +116,8 @@
     <div class="stat"><span>레벨</span><b id="sLevel">1</b></div>
     <div class="stat"><span>턴</span><b id="sTurn">0</b></div>
     <div class="stat cash" id="sCashBox"><span>지갑</span><b id="sCash">0</b></div>
-    <div class="stat"><span>판 몸값</span><b id="sBoard">0</b></div>
+    <div class="stat"><span>몸값</span><b id="sBoard">0</b></div>
+    <div class="stat"><span>다음</span><span id="nextBall"></span></div>
   </div>
 </div>
 
@@ -114,16 +125,15 @@
   <div id="box">
     <div id="guide"></div>
     <div id="line"></div>
-    <div id="nextBox">다음<div id="nextBall"></div></div>
   </div>
   <div id="legendTypes"></div>
   <div id="hint">손가락을 좌우로 움직이고 떼면 떨어져요. 같은 로봇·같은 단계 공끼리 부딪히면 더 큰 공으로 합쳐져요.</div>
-  <div id="hall"><div class="list" id="hallList"></div></div>
   <div id="sellSheet" class="hide">
     <div class="who" id="shWho"></div>
     <div class="big" id="shCost"></div>
     <div class="how" id="shHow"></div>
     <div class="tip" id="shTip"></div>
+    <button id="bIgnore" class="hide">모른 척하기</button>
   </div>
 </div>
 
@@ -139,18 +149,18 @@
 <script>
 // 시제품 수치표 (확정되면 config.js로 옮김)
 const M = {
-  levelTypes: [2, 2, 3],   // 레벨별 로봇 종류 수 (마지막 값이 이후 레벨에 계속). ?t= 로 고정
+  levelTypes: [2],         // 레벨별 로봇 종류 수 (마지막 값이 이후 레벨에 계속). 3종은 헷갈려서 당분간 2종. ?t= 로 고정
   seedChance: 0.4,         // 새 공이 시드 단계로 나올 확률
   startCash: 100,
   // 단계 : 같은 로봇·같은 단계 공 둘이 부딪히면 한 단계 위(더 큰 공). 유니콘 둘이 합쳐지면 상장(레벨 클리어).
   // r 은 판 폭에 대한 공 반지름 비율
   stages: [
-    { name: '창업',    value: 10,   r: 0.055 },
-    { name: '시드',    value: 25,   r: 0.072 },
+    { name: '창업',    value: 10,   r: 0.06 },
+    { name: '시드',    value: 25,   r: 0.076 },
     { name: '시리즈A', value: 60,   r: 0.095 },
-    { name: '시리즈B', value: 150,  r: 0.125 },
-    { name: '유니콘',  value: 400,  r: 0.16 },
-    { name: '상장',    value: 1000, r: 0.2 }
+    { name: '시리즈B', value: 150,  r: 0.12 },
+    { name: '유니콘',  value: 400,  r: 0.15 },    // 지름이 창업의 2.5배
+    { name: '상장',    value: 1000, r: 0.18 }
   ],
   ipoMul: 5,               // 상장 대금 = 상장 단계 몸값 × 이 배수
   dumpRate: 0.5,           // 손해 매각 = 몸값의 이 비율
@@ -176,13 +186,13 @@ const M = {
   const boxEl = $('box');
   const TOP = M.stages.length - 1;
 
-  const S = { balls: [], cash: 0, turn: 0, level: 1, types: [], seen: {}, cur: null, next: null, aimX: 0, ready: true, over: false, cleared: false, dumping: false, sel: null, dumps: 0, hall: [], nextId: 1, ipos: 0, firstIpo: 0, minCash: 0, overT: 0 };
+  const S = { balls: [], cash: 0, turn: 0, level: 1, types: [], seen: {}, cur: null, next: null, aimX: 0, ready: true, over: false, cleared: false, dumping: false, sel: null, dumps: 0,  nextId: 1, ipos: 0, firstIpo: 0, minCash: 0, overT: 0 };
 
   // 판 크기 : 화면 폭을 꽉 채움
   let BW = 360, BH = 480, LINE = 80;
   function layout() {
     BW = Math.min(window.innerWidth, 400) - 16;
-    BH = Math.max(320, $('main').clientHeight - 130);
+    BH = Math.max(320, $('main').clientHeight - 178);   // 아래 안내문·독촉 창 자리
     boxEl.style.width = BW + 'px';
     boxEl.style.height = BH + 'px';
     LINE = BW * M.stages[3].r * 2 + 16;   // 위쪽 선 : 들고 있는 공 자리 아래
@@ -230,7 +240,7 @@ const M = {
     nb.innerHTML = '';
     const mini = document.createElement('div');
     mini.className = `ball s${S.next.stage}`;
-    mini.style.cssText = 'position:relative;width:30px;height:30px;margin:2px auto 0';
+    mini.style.cssText = 'position:relative;display:inline-block;width:20px;height:20px;border-width:2px;vertical-align:middle;box-shadow:none';
     mini.innerHTML = artHTML(S.next.type.tile);
     nb.appendChild(mini);
   }
@@ -321,12 +331,11 @@ const M = {
     S.cash += v;
     S.ipos++;
     if (!S.firstIpo) S.firstIpo = S.turn;
-    S.hall.push({ type: a.type, v });
     S.over = true; S.cleared = true;
     if (SIM) return;
     floatAt(x, y, '+' + v);
     banner(`${a.type.name} 상장! +${v}`, true);
-    paintHall(); paintHUD();
+    paintHUD();
     clearPick();
     setTimeout(() => {
       $('overTitle').textContent = `레벨 ${S.level} 클리어!`;
@@ -359,8 +368,9 @@ const M = {
     for (const b of S.balls) b.el.classList.add('pick');
     $('shWho').textContent = '적자! 회사를 팔아 메우세요';
     $('shCost').textContent = S.cash; $('shCost').style.color = '#FF8A80';
-    $('shHow').textContent = '공을 누르면 반값을 보여 줘요. 무시하고 계속 둘 수도 있어요.';
+    $('shHow').textContent = '공을 누르면 반값을 보여 줘요.';
     $('shTip').textContent = '매각하세요 매각하세요 매각하세요';
+    $('bIgnore').classList.remove('hide');
     showSheet();
     if (navigator.vibrate) navigator.vibrate(40);
   }
@@ -393,7 +403,10 @@ const M = {
     clearPick();
     settle();
   }
+  // 모른 척하기 : 독촉 창을 닫음 (다음에 또 뜸)
+  $('bIgnore').addEventListener('click', () => { if (S.dumping === 'nag') clearPick(); });
   function showSheet() {
+    if (S.dumping !== 'nag') $('bIgnore').classList.add('hide');
     $('sellSheet').classList.remove('hide');
     $('main').classList.add('sheet');
   }
@@ -406,11 +419,6 @@ const M = {
     $('sCash').textContent = S.cash;
     $('sCashBox').classList.toggle('red', S.cash < 0);
     $('sBoard').textContent = boardValue();
-  }
-  function paintHall() {
-    $('hallList').innerHTML = S.hall.length
-      ? S.hall.map((h, i) => `<span class="item"><img src="assets/${h.type.tile}-a.png" alt="">#${i + 1} ${h.type.name} <b>+${h.v}</b></span>`).join('')
-      : '<span class="none">상장사 명예의 전당 : 유니콘 둘을 합치면 상장해서 여기에 올라요</span>';
   }
   function floatAt(x, y, text, minus) {
     const f = document.createElement('div');
@@ -435,7 +443,7 @@ const M = {
   let SIM = false;
   function newGame(sim) {
     SIM = !!sim;
-    S.cash = M.startCash; S.hall = []; S.level = 1; S.ipos = 0; S.firstIpo = 0; S.minCash = M.startCash;
+    S.cash = M.startCash; S.level = 1; S.ipos = 0; S.firstIpo = 0; S.minCash = M.startCash;
     S.seen = Object.fromEntries(M.types.map(t => [t.key, 0]));
     startLevel();
   }
@@ -456,7 +464,6 @@ const M = {
       $('over').classList.add('hide');
       $('sellSheet').classList.add('hide');
       $('main').classList.remove('sheet');
-      paintHall();
     }
     spawn();
     paintHUD();
