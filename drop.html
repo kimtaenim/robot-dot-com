@@ -20,6 +20,39 @@
   }
   #hud { flex: none; text-align: center; padding: 8px 12px 4px; width: 100%; }
   #title { font-family: 'Rye', serif; font-size: 24px; letter-spacing: 1px; line-height: 1.1; }
+  #titleRow { position: relative; padding: 0 58px; }
+  /* 제목은 소리 버튼 자리를 빼고 한 줄에 들어가게 화면 폭에 맞춰 줄어듦 */
+  #titleRow #title { font-size: min(21px, calc((100vw - 150px) / 14.6)); white-space: nowrap; }
+  /* 소리 버튼 : Robot Rush·Bosses of Our World와 같은 모양 (sound O 초록 / sound X 빨강) */
+  .mute { position: absolute; right: 0; top: 50%; transform: translateY(-50%); border: 0; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .3px; line-height: 1; padding: 4px 5px 4px 7px; border-radius: 12px; white-space: nowrap; font-family: 'IBM Plex Mono', monospace; }
+  .mute b { display: inline-block; min-width: 18px; margin-left: 3px; padding: 2px 0; border-radius: 6px; text-align: center; color: #fff; }
+  .mute b.on { background: #2E9E4F; }
+  .mute b.off { background: #C62828; }
+  /* ---------- 손맛 ---------- */
+  /* 떨어질 자리 미리보기 */
+  .ghost { position: absolute; z-index: 1; border-radius: 24%; border: 3px dashed var(--c3, #fff); background: var(--c, rgba(255,255,255,.2)); opacity: .35; pointer-events: none; transition: translate .08s ease-out; }
+  .ghost.hide { display: none; }
+  /* 착지 : 눌렸다 튀어 오름 */
+  .ball.land { transform-origin: 50% 100%; animation: land .32s ease-out; }
+  @keyframes land { 0% { scale: 1.25 .7; } 40% { scale: .9 1.12; } 70% { scale: 1.04 .97; } 100% { scale: 1 1; } }
+  .dust { position: absolute; z-index: 6; pointer-events: none; width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,.75); transform: translate(-50%, -50%); animation: dust .45s ease-out forwards; }
+  @keyframes dust { to { transform: translate(calc(-50% + var(--dx)), calc(-50% - 14px)) scale(2); opacity: 0; } }
+  /* 빨려 드는 회사 */
+  .ball.suck { transition: translate .12s ease-in, scale .12s ease-in, opacity .12s; scale: .4 .4; opacity: .4; }
+  /* 작은 흔들림 (합병마다) */
+  #box.nudge { animation: nudge .18s ease-in-out; }
+  @keyframes nudge { 0%, 100% { translate: 0 0; } 50% { translate: 0 3px; } }
+  /* 연쇄 번쩍 */
+  #boxFlash { position: absolute; inset: 0; z-index: 8; pointer-events: none; background: #fff; opacity: 0; border-radius: 14px; }
+  #boxFlash.on { animation: boxFlash .35s ease-out; }
+  @keyframes boxFlash { 0% { opacity: .45; } 100% { opacity: 0; } }
+  /* 동전 : 지갑으로 날아감 */
+  .coin { position: fixed; z-index: 40; width: 14px; height: 14px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 35% 30%, #FFF6C2, #FFD23F 45%, #C9971C); box-shadow: 0 1px 2px rgba(0,0,0,.4); transition: left .55s cubic-bezier(.5, -0.3, .7, 1), top .55s cubic-bezier(.2, -0.6, .5, 1), opacity .1s .5s; }
+  .stat.cash.bump { animation: bump .25s ease-out; }
+  @keyframes bump { 50% { scale: 1.18; } }
+  /* 꽃가루 */
+  .confetti { position: absolute; z-index: 9; top: -12px; width: 8px; height: 12px; pointer-events: none; animation: confetti linear forwards; }
+  @keyframes confetti { to { transform: translate(var(--dx), var(--fall)) rotate(var(--rot)); opacity: .2; } }
   #subtitle { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 13px; opacity: .85; margin-top: 2px; }
   #stats { display: flex; justify-content: center; gap: 4px; margin-top: 6px; font-size: 13px; white-space: nowrap; }
   .stat { background: var(--panel); border-radius: 8px; padding: 3px 7px; display: flex; gap: 4px; align-items: center; }
@@ -156,7 +189,7 @@
   /* 짧은 화면 : 제목을 줄여 판에 한 줄 더 */
   @media (max-height: 760px) {
     #subtitle { display: none; }
-    #title { font-size: 19px; }
+    #titleRow #title { font-size: min(18px, calc((100vw - 150px) / 14.6)); }
     #hud { padding-top: 4px; }
     #stats { margin-top: 4px; }
   }
@@ -205,7 +238,7 @@
 <body>
 
 <div id="hud">
-  <div id="title">★ROBOT-DOT-COM★</div>
+  <div id="titleRow"><div id="title">★ROBOT-DOT-COM★</div><button class="mute" id="bSound" type="button" aria-label="소리 켜기/끄기">sound <b class="on">O</b></button></div>
   <div id="subtitle">로봇닷컴 : 떨어뜨리기 시제품</div>
   <div id="stats">
     <div class="stat"><span>레벨</span><b id="sLevel">1</b></div>
@@ -217,10 +250,10 @@
 </div>
 
 <div id="main">
-  <div id="box"><div id="dropRow"></div><div id="debt"></div></div>
+  <div id="box"><div id="dropRow"></div><div id="debt"></div><div id="boxFlash"></div></div>
 </div>
 
-<div id="actions"><button id="bDex">도감</button><button id="bSound">소리 켬</button><button id="bNew">새 판</button></div>
+<div id="actions"><button id="bDex">도감</button><button id="bNew">새 판</button></div>
 <div id="menu"><div class="menuBox">
   <div class="mt">★ROBOT-DOT-COM★</div>
   <div class="ms">로봇닷컴</div>
@@ -398,7 +431,7 @@ const M = {
   }
   const place = t => { const [x, y] = px(t.c, t.r); t.el.style.translate = `${x}px ${y}px`; };
 
-  let colEls = [];
+  let colEls = [], ghostEl = null;
   function buildBoard() {
     layout();
     for (const el of boxEl.querySelectorAll('.slot, .col, .ball')) el.remove();
@@ -419,6 +452,10 @@ const M = {
       }
     }
     for (const t of tiles()) { tileEl(t); place(t); }
+    ghostEl = document.createElement('div');
+    ghostEl.className = 'ghost hide';
+    ghostEl.style.width = ghostEl.style.height = CELL + 'px';
+    boxEl.appendChild(ghostEl);
     if (S.cur) { tileEl(S.cur).classList.add('held'); aim(S.col); }
   }
 
@@ -428,6 +465,19 @@ const M = {
     if (SIM) return;
     if (S.cur && S.cur.el) { const [x, y] = px(S.col, -1); S.cur.el.style.translate = `${x}px ${y}px`; }
     colEls.forEach((ce, i) => { ce.classList.toggle('on', i === S.col && !S.busy); ce.classList.toggle('full', i === S.col && colFull(i)); });
+    // 떨어질 자리에 반투명 그림자
+    if (ghostEl) {
+      const show = S.cur && !S.busy && !colFull(S.col);
+      ghostEl.classList.toggle('hide', !show);
+      if (show) {
+        let r = H - 1; while (S.grid[r][S.col]) r--;
+        const [x, y] = px(S.col, r);
+        ghostEl.style.translate = `${x}px ${y}px`;
+        const tn = toneOf(S.cur.type, S.cur.stage);
+        ghostEl.style.setProperty('--c', tn ? tn.c : '#FFE27A');
+        ghostEl.style.setProperty('--c3', tn ? tn.c3 : '#C8962A');
+      }
+    }
   }
 
   function spawn() {
@@ -467,12 +517,17 @@ const M = {
       t.el.style.transitionDuration = (0.05 * (r + 1) + 0.08) + 's';
       place(t);
       sfx.drop();
+      aim(S.col);
       const [mx, my] = mid(c, r);
       floatAt(mx, my, '-' + cost, true);
       paintHUD();
       aim(S.col);
       await sleep(50 * (r + 1) + 90);
       t.el.style.transitionDuration = '';
+      // 착지 : 눌렸다 튀어 오르고, 먼지, 툭, 짧은 진동
+      t.el.classList.remove('land'); void t.el.offsetWidth; t.el.classList.add('land');
+      dust(mx, my + CELL / 2 - 4);
+      sfx.land(); buzz(10); nudge();
     }
     await resolve([t]);
     S.busy = false;
@@ -493,7 +548,7 @@ const M = {
       if (!gone.length) continue;
       for (const g of gone) S.grid[g.r][g.c] = null;
       const stage = Math.min(S.top, t.stage + gone.length);
-      if (!SIM) for (const g of gone) { g.el.style.translate = t.el.style.translate; g.el.classList.add('gone'); setTimeout(() => g.el.remove(), 150); }
+      if (!SIM) for (const g of gone) { g.el.style.translate = t.el.style.translate; g.el.classList.add('suck'); setTimeout(() => g.el.remove(), 160); }
       if (stage === S.top) {
         S.grid[t.r][t.c] = null;
         if (!SIM) await sleep(110);
@@ -512,11 +567,12 @@ const M = {
         floatAt(mx, my - CELL * 0.3, '+' + gain + (stage >= S.top - 1 ? ' ' + S.stages[stage].name + '!' : ''));
         shards(mx, my, stage, 16 + stage * 3 + gone.length * 8, t.type);
         sfx.merge(stage, S.chain + gone.length - 1);
+        coins(mx, my, gain);
         if (gone.length >= 2) chainText(mx, my - CELL * 0.9, `${gone.length + 1}개 동시 합병!`);
-        if (S.chain >= 2) { chainText(mx, my - CELL * 0.4, S.chain); shake(); buzz([25, 30, 25 + S.chain * 10]); }
-        else if (gone.length >= 2) { shake(); buzz([30, 30, 60]); }
-        else buzz(stage >= S.top - 1 ? [40, 40, 80] : 18);
-        if (stage === S.top - 1) sfx.unicorn();
+        if (S.chain >= 2) { chainText(mx, my - CELL * 0.4, S.chain); shake(); flashBox(); buzz([25, 30, 25 + S.chain * 10]); }
+        else if (gone.length >= 2) { shake(); flashBox(); buzz([30, 30, 60]); }
+        else { nudge(); buzz(stage >= S.top - 1 ? [40, 40, 80] : 18); }
+        if (stage === S.top - 1) { sfx.unicorn(); confetti(40); }
         paintHUD();
         await sleep(130);
       }
@@ -554,7 +610,8 @@ const M = {
     floatAt(mx, my, '+' + v);
     banner(`${keep.type.name} 상장! +${v}`, true);
     shards(mx, my, S.top - 1, 40);
-    shake(); buzz([60, 40, 60, 40, 120]);
+    shake(); flashBox(); confetti(90); coins(mx, my, v);
+    buzz([60, 40, 60, 40, 120]);
     sfx.ipo();
     paintHUD();
     const showClear = () => setTimeout(() => {
@@ -625,7 +682,7 @@ const M = {
     if (SIM) return;
     $('sLevel').textContent = S.level;
     $('sTurn').textContent = S.turn;
-    $('sCash').textContent = S.cash;
+    rollCash(S.cash);
     $('sCashBox').classList.toggle('red', S.cash < 0);
     $('sBoard').textContent = boardValue();
     $('debt').textContent = S.cash < 0 ? `적자 ${S.cash} / 재정 위기 -${M.crisisAt}` : '';
@@ -715,13 +772,84 @@ const M = {
     boxEl.appendChild(el);
     setTimeout(() => el.remove(), 1050);
   }
+  function dust(x, y) {
+    for (const dx of [-26, -12, 12, 26]) {
+      const d = document.createElement('div');
+      d.className = 'dust';
+      d.style.left = x + dx * 0.3 + 'px'; d.style.top = y + 'px';
+      d.style.setProperty('--dx', dx + 'px');
+      boxEl.appendChild(d);
+      setTimeout(() => d.remove(), 480);
+    }
+  }
+  function nudge() { boxEl.classList.remove('nudge'); void boxEl.offsetWidth; boxEl.classList.add('nudge'); }
+  function flashBox() { const f = $('boxFlash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); }
+  // 동전 : 판 위 (x, y)에서 지갑으로 날아감. 도착하면 지갑이 통통 튐
+  function coins(x, y, amount) {
+    if (SIM || amount <= 0) return;
+    const br = boxEl.getBoundingClientRect(), wr = $('sCashBox').getBoundingClientRect();
+    const n = Math.min(10, 2 + Math.floor(amount / 25));
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement('div');
+      c.className = 'coin';
+      c.style.left = br.left + x + (Math.random() - 0.5) * 30 + 'px';
+      c.style.top = br.top + y + (Math.random() - 0.5) * 20 + 'px';
+      document.body.appendChild(c);
+      setTimeout(() => {
+        c.style.left = wr.left + wr.width / 2 - 7 + 'px';
+        c.style.top = wr.top + wr.height / 2 - 7 + 'px';
+        c.style.opacity = '0';
+      }, 20 + i * 35);
+      setTimeout(() => {
+        c.remove();
+        const box = $('sCashBox'); box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump');
+        if (i % 3 === 0) sfx.coin();
+      }, 580 + i * 35);
+    }
+  }
+  // 지갑 숫자가 굴러가며 바뀜
+  let shownCash = null, rollT = 0;
+  function rollCash(to) {
+    if (shownCash === null) { shownCash = to; $('sCash').textContent = to; return; }
+    cancelAnimationFrame(rollT);
+    const from = shownCash, t0 = performance.now(), dur = 450;
+    const tick = now => {
+      const k = Math.min(1, (now - t0) / dur);
+      shownCash = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+      $('sCash').textContent = shownCash;
+      if (k < 1) rollT = requestAnimationFrame(tick);
+    };
+    rollT = requestAnimationFrame(tick);
+  }
+  // 꽃가루
+  function confetti(n) {
+    if (SIM) return;
+    const cols = ['#FFB3E6', '#C9A2FF', '#7FD8FF', '#FFE27A', '#8FE3C0', '#FF8FB0'];
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * BW + 'px';
+      c.style.background = cols[i % cols.length];
+      const dur = 1.2 + Math.random() * 1.2;
+      c.style.animationDuration = dur + 's';
+      c.style.animationDelay = Math.random() * 0.3 + 's';
+      c.style.setProperty('--dx', (Math.random() - 0.5) * 120 + 'px');
+      c.style.setProperty('--fall', boxEl.clientHeight + 30 + 'px');
+      c.style.setProperty('--rot', (Math.random() * 1080 - 540) + 'deg');
+      boxEl.appendChild(c);
+      setTimeout(() => c.remove(), (dur + 0.4) * 1000);
+    }
+  }
   function shake() { boxEl.classList.remove('shake'); void boxEl.offsetWidth; boxEl.classList.add('shake'); }
   const buzz = p => { if (!SIM && navigator.vibrate) navigator.vibrate(p); };
 
   // ---------- 소리 : 파일 없이 브라우저에서 만듦 ----------
   // 소리 켬·끔 (기억해 둠)
   const sound = { on: (() => { try { return localStorage.getItem('rdc.sound') !== 'off'; } catch (e) { return true; } })() };
-  function paintSound() { for (const id of ['bSound', 'mSound']) $(id).textContent = sound.on ? '소리 켬' : '소리 끔'; }
+  function paintSound() {
+    $('bSound').innerHTML = `sound <b class="${sound.on ? 'on' : 'off'}">${sound.on ? 'O' : 'X'}</b>`;
+    $('mSound').textContent = sound.on ? '소리 켬' : '소리 끔';
+  }
   function toggleSound() {
     sound.on = !sound.on;
     try { localStorage.setItem('rdc.sound', sound.on ? 'on' : 'off'); } catch (e) {}
@@ -756,6 +884,8 @@ const M = {
     return {
       unlock,
       drop: () => tone(900, 0.05, 'triangle', 0.12, 500),
+      land: () => { tone(150, 0.1, 'sine', 0.35, 70); tone(2400, 0.03, 'triangle', 0.05); },
+      coin: () => tone(1568, 0.07, 'square', 0.04, 2093),
       merge: (stage, chain) => { const f = NOTE[stage] * (1 + 0.06 * (chain - 1)); tone(f * 0.5, 0.09, 'sine', 0.25, f); tone(f, 0.18, 'triangle', 0.14, null, 0.05); },
       unicorn: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.25, 'triangle', 0.16, null, 0.08 * i)),
       ipo: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i === 5 ? 0.6 : 0.18, 'square', 0.08, null, 0.12 * i)),
