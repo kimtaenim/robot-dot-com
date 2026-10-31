@@ -87,7 +87,7 @@
 index.html          단일 파일 (HTML+CSS+JS), 외부 스크립트 없음
 config.js           수치표 (유형·비용·판 크기·턴 규칙). index.html에서 인라인 포함해도 됨
 data/cards.json     카드 160장 안팎 {id, type, company, year, text}
-data/companies.json 도감용 40개사 {id, name, en, country, type, oneLine}
+data/companies.json 도감용 40개사 {id, name, en, country, type, oneLine, also?} (also : 주 분류 말고도 하는 분야. 예 : 유니트리 4족보행 + 휴머노이드)
 assets/tile-*.png   Robot Rush 타일 복사본
 README.md
 ```

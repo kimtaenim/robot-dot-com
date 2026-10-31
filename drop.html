@@ -1001,12 +1001,13 @@ const M = {
     const coGot = cos.filter(co => cardsOf(co.id).some(c => got.has(c.id))).length;
     $('dexSum').textContent = `${coGot}/${cos.length}개사 · 카드 ${got.size}/${DATA.cards.length}장`;
     $('dexList').innerHTML = Object.entries(GROUP).map(([g, info]) => {
-      const list = cos.filter(co => co.type === g);
+      // 주 분류 + 'also'(이 분야도 하는 회사)
+      const list = cos.filter(co => co.type === g || (co.also || []).includes(g));
       return `<div class="grp"><div class="gh"><img src="assets/${info.icon}-a.png" alt="">${info.name}</div>` +
         list.map(co => {
           const all = cardsOf(co.id), n = all.filter(c => got.has(c.id)).length;
           return `<button class="co ${n ? '' : 'locked'}" data-id="${co.id}">` +
-            `<b>${n ? co.name : '???'}</b><span>${n ? co.country : '아직 못 만났어요'}</span><i>${n}/${all.length}</i></button>`;
+            `<b>${n ? co.name : '???'}</b><span>${n ? co.country : '아직 못 만났어요'}${co.type !== g && n ? ` · ${GROUP[co.type].name}에서도` : ''}</span><i>${n}/${all.length}</i></button>`;
         }).join('') + '</div>';
     }).join('');
     $('dexDetail').classList.add('hide');

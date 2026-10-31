@@ -45,7 +45,8 @@
   "en": "Unitree",
   "country": "중국",
   "type": "quadruped",
-  "oneLine": "1만 위안 4족 로봇으로 출발해 2026년 커촹반 상장 첫날 629% 폭등"
+  "oneLine": "1만 위안 4족 로봇으로 출발해 2026년 커촹반 상장 첫날 629% 폭등",
+  "also": ["humanoid"]
  },
  {
   "id": "07",
