@@ -335,7 +335,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.10.31-5';
+const BUILD_V = '2026.10.31-6';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -744,7 +744,9 @@ const M = {
     S.crises++;
     if (!SIM) { shake(); buzz([120, 60, 120]); sfx.crisis(); banner(title, 'crisis'); await sleep(900); }
     const moved = [];
+    let firstSold = null;   // 가장 먼저 팔려 나간 회사 : 위기 카드의 로봇 업종
     for (let t = pickNext(); t; t = pickNext()) {
+      firstSold = firstSold || t.type;
       if (!SIM) { t.el.classList.add('firesale'); await sleep(450); }
       sellTile(t, rate, label);
       if (!SIM) await sleep(200);
@@ -754,7 +756,7 @@ const M = {
     if (S.over) { S.crisis = false; return; }
     if (SIM) { S.crisis = false; return; }
     await sleep(400);
-    await new Promise(done => queueCard('crisis', S.types[rnd(S.types.length)], done));
+    await new Promise(done => queueCard('crisis', firstSold || S.types[0], done));
     S.crisis = false;
     paintHUD();
   }
@@ -825,7 +827,8 @@ const M = {
     spawn();
     paintHUD();
     save();
-    if (!SIM) { if (menuOpen) pendingStart = true; else setTimeout(() => queueCard('start', S.types[rnd(S.types.length)]), 300); }
+    // 레벨 시작 카드 : 처음 떨어뜨릴 회사(맨 위에 든 첫 회사)의 로봇 업종
+    if (!SIM) { if (menuOpen) pendingStart = true; else setTimeout(() => queueCard('start', S.cur.type), 300); }
   }
 
   // ---------- 연출 ----------
@@ -1029,13 +1032,15 @@ const M = {
   Promise.all([fetch('data/cards.json').then(r => r.json()), fetch('data/companies.json').then(r => r.json())])
     .then(([cards, cos]) => { DATA.cards = cards; for (const c of cos) DATA.companies[c.id] = c; if (cardQueue.length) showCard(); })
     .catch(() => { DATA.failed = true; while (cardQueue.length) { const q = cardQueue.shift(); if (q.after) q.after(); } });
-  // 같은 로봇 종류 회사 카드 중 아직 안 본 것 > 다른 종류 회사 카드 > 다 봤으면 처음부터
+  // 그 로봇 업종의 카드 중 아직 안 본 것 (판의 흐름과 이어지게)
   function pickCard(moment, type) {
     const group = ROBOT_GROUP[type.key], kinds = MOMENT[moment];
     const of = c => kinds.includes(c.type) && !used.has(c.id);
-    let pool = DATA.cards.filter(c => of(c) && cardGroup(c) === group);
-    if (!pool.length) pool = DATA.cards.filter(of);
-    if (!pool.length) { for (const c of DATA.cards) if (kinds.includes(c.type)) used.delete(c.id); pool = DATA.cards.filter(of); }
+    // 그 로봇 업종 카드만 : 다 봤으면 그 업종 카드를 처음부터 다시 (다른 업종으로 넘어가지 않음)
+    const mine = c => kinds.includes(c.type) && cardGroup(c) === group;
+    let pool = DATA.cards.filter(c => mine(c) && !used.has(c.id));
+    if (!pool.length) { for (const c of DATA.cards) if (mine(c)) used.delete(c.id); pool = DATA.cards.filter(mine); }
+    if (!pool.length) pool = DATA.cards.filter(of);   // 그 업종 카드가 아예 없을 때만
     const card = pool[rnd(pool.length)];
     if (card) used.add(card.id);
     return card;
@@ -1214,7 +1219,7 @@ const M = {
     $('menu').classList.add('hide');
     $('tut').classList.add('hide');
     S.paused = false;
-    if (pendingStart) { pendingStart = false; setTimeout(() => queueCard('start', S.types[rnd(S.types.length)]), 300); }
+    if (pendingStart) { pendingStart = false; setTimeout(() => queueCard('start', S.cur ? S.cur.type : S.types[0]), 300); }
   }
   $('mStart').addEventListener('click', closeMenu);
   // 저장된 판을 버리고 레벨 1부터
