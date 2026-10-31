@@ -150,7 +150,7 @@
 <div id="main">
   <div id="board"></div>
   <div id="legendTypes"></div>
-  <div id="hint">끌어서 같은 로봇·같은 단계 위에 놓으면 합병, 빈칸에 놓으면 이동. 짧게 누르면 매각.</div>
+  <div id="hint">끌어서 같은 로봇·같은 단계 위에 놓으면 합병. 짧게 누르면 매각.</div>
 </div>
 
 <div id="actions">
@@ -180,7 +180,9 @@ const M = {
   turns: 100,              // 판 길이
   typesPerGame: 3,         // 한 판에 나오는 로봇 종류 수 (5종 중 무작위)
   seedChance: 0.1,         // 새 회사가 시드 단계로 나올 확률
-  adjacentOnly: false,     // true면 바로 옆 칸끼리만 합병 (?adj=1)
+  startTiles: 5,           // 시작할 때 회사 수
+  extraEvery: 4,           // 이 턴마다 새 회사가 1개 더 나옴 (판이 서서히 차오름)
+  adjacentOnly: false,     // true면 바로 옆 칸끼리만 합병하고 빈칸 이동도 허용 (?adj=1). false면 어디서든 합병, 이동 없음
   // 단계 : 같은 로봇·같은 단계 둘이 합쳐지면 한 단계 위. 유니콘 둘이 합쳐지면 상장(엑싯).
   stages: [
     { name: '창업',    value: 10 },
@@ -207,6 +209,7 @@ const M = {
   if (qs.get('r')) M.radius = +qs.get('r');
   if (qs.get('t')) M.typesPerGame = +qs.get('t');
   if (qs.get('adj')) M.adjacentOnly = qs.get('adj') === '1';
+  if (M.adjacentOnly) document.getElementById('hint').textContent = '끌어서 바로 옆 같은 로봇·같은 단계 위에 놓으면 합병, 빈칸에 놓으면 이동. 짧게 누르면 매각.';
   const RAD = M.radius;
   const $ = id => document.getElementById(id);
   const rnd = n => Math.floor(Math.random() * n);
@@ -317,18 +320,19 @@ const M = {
   const canDropMerge = (a, b) => a !== b && canMerge(a, b) && (!M.adjacentOnly || adjacent(a, b));
 
   function movesLeft() {
-    if (empties().length) return true;
+    if (M.adjacentOnly && empties().length) return true;
     const ts = [...S.grid.values()];
     return ts.some(a => ts.some(b => canDropMerge(a, b)));
   }
 
-  // 행동 하나 끝 : 턴 +1, 새 회사 1개
+  // 행동 하나 끝 : 턴 +1, 새 회사 1개 (extraEvery 턴마다 1개 더)
   function afterAction() {
     S.turn++;
     spawn();
+    if (S.turn % M.extraEvery === 0) spawn();
     paintHUD();
     if (S.turn >= M.turns) end('시간 종료');
-    else if (!movesLeft()) banner('꽉 막혔다 : 회사를 팔아 자리를 비우자');
+    else if (!movesLeft()) banner(empties().length ? '합칠 짝이 없다 : 회사를 팔면 새 회사가 온다' : '꽉 막혔다 : 회사를 팔아 자리를 비우자');
   }
 
   // 빈칸으로 옮기기
@@ -400,10 +404,7 @@ const M = {
     t.el.style.transition = 'translate .2s, opacity .2s';
     t.el.style.opacity = '0';
     setTimeout(() => t.el.remove(), 200);
-    S.turn++;
-    spawn();
-    paintHUD();
-    if (S.turn >= M.turns) end('시간 종료');
+    afterAction();
   }
 
   function boardValue() {
@@ -459,7 +460,7 @@ const M = {
     $('over').classList.add('hide');
     closeSell();
     buildBoard();
-    spawn(); spawn(); spawn();
+    for (let i = 0; i < M.startTiles; i++) spawn();
     paintHUD();
   }
 
@@ -517,7 +518,7 @@ const M = {
     if (!d.moved) { if (!cancel) tapTile(d.t); return; }
     const c = cancel ? null : cellAt(e.clientX, e.clientY);
     const o = c && at(...c);
-    if (c && !o) moveTo(d.t, ...c);
+    if (c && !o && M.adjacentOnly) moveTo(d.t, ...c);
     else if (o && canDropMerge(d.t, o)) mergeInto(d.t, o);
     else place(d.t); // 제자리로
   }
