@@ -40,7 +40,7 @@
   @keyframes chainPop { 0% { transform: translate(-50%, -50%) scale(.3); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1.25); opacity: 1; } 35% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { transform: translate(-50%, -90%) scale(1); opacity: 0; } }
 
   /* 실제 회사 카드 : Delft 블루 도자기 타일 */
-  #card { position: fixed; inset: 0; z-index: 25; background: rgba(12, 22, 48, .72); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  #card { position: fixed; inset: 0; z-index: 31; background: rgba(12, 22, 48, .72); display: flex; align-items: center; justify-content: center; padding: 20px; }
   #card.hide { display: none; }
   .cardBox { width: 100%; max-width: 340px; background: #FBFCFF; color: #10275F; border-radius: 18px; border: 4px solid #1E3F8F; box-shadow: inset 0 0 0 3px #FBFCFF, inset 0 0 0 5px #6F94D6, 0 14px 30px rgba(0,0,0,.45); padding: 18px 18px 14px; text-align: center; animation: cardIn .35s cubic-bezier(.2, 1.4, .4, 1); }
   @keyframes cardIn { from { transform: scale(.6) rotate(-6deg); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -55,7 +55,7 @@
   .cardBox .foot { display: flex; justify-content: space-between; font-size: 11px; opacity: .6; margin-top: 8px; }
 
   /* 도감 : Delft 블루 */
-  #dex, #dexDetail { position: fixed; inset: 0; z-index: 24; background: #F3F6FC; color: #10275F; display: flex; flex-direction: column; padding: calc(10px + env(safe-area-inset-top)) 12px calc(10px + env(safe-area-inset-bottom)); }
+  #dex, #dexDetail { position: fixed; inset: 0; z-index: 29; background: #F3F6FC; color: #10275F; display: flex; flex-direction: column; padding: calc(10px + env(safe-area-inset-top)) 12px calc(10px + env(safe-area-inset-bottom)); }
   #dex.hide, #dexDetail.hide { display: none; }
   .dexHead { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 3px double #6F94D6; }
   .dexHead .dt { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 20px; }
@@ -141,7 +141,32 @@
   #legendTypes { display: flex; gap: 10px; justify-content: center; font-size: 12px; }
   #legendTypes span { display: inline-flex; align-items: center; gap: 3px; }
   #legendTypes img { width: 22px; height: 22px; }
-  #hint { font-size: 12.5px; opacity: .8; text-align: center; padding: 0 16px; }
+  /* 짧은 화면 : 제목을 줄여 판에 한 줄 더 */
+  @media (max-height: 760px) {
+    #subtitle { display: none; }
+    #title { font-size: 19px; }
+    #hud { padding-top: 4px; }
+    #stats { margin-top: 4px; }
+  }
+  /* 시작 창·튜토리얼 */
+  #menu, #tut { position: fixed; inset: 0; z-index: 28; background: rgba(30, 36, 42, .92); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  #menu.hide, #tut.hide { display: none; }
+  .menuBox, .tutBox { width: 100%; max-width: 340px; background: #F7F9FC; color: #1E2A3A; border-radius: 20px; padding: 22px 20px 18px; text-align: center; box-shadow: 0 14px 30px rgba(0,0,0,.45); animation: cardIn .35s cubic-bezier(.2, 1.4, .4, 1); }
+  .menuBox .mt { font-family: 'Rye', serif; font-size: 25px; color: #2A3A55; }
+  .menuBox .ms { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; opacity: .7; }
+  .menuBox p { font-size: 14px; margin: 10px 0 14px; line-height: 1.5; word-break: keep-all; }
+  .menuBox button, .tutBox button { display: block; width: 100%; height: 50px; margin-top: 8px; border: none; border-radius: 12px; background: #E3E8EF; color: #1E2A3A; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 16px; }
+  .menuBox button.pri, .tutBox button.pri { background: var(--me); color: #fff; }
+  .menuBox .mRow { display: flex; gap: 8px; }
+  .menuBox .mRow button { flex: 1; }
+  .tutBox .tn { font-family: 'IBM Plex Mono', monospace; font-size: 12px; opacity: .5; }
+  .tutBox .tv { height: 96px; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 22px; color: #2A3A55; position: relative; }
+  .tutBox .tv .ball { position: relative; flex: none; transition: none; }
+  .tutBox .tv .big { font-size: 30px; color: #F0426E; }
+  .tutBox .tt { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 20px; }
+  .tutBox p { font-size: 14.5px; line-height: 1.6; margin-top: 6px; text-align: left; word-break: keep-all; min-height: 92px; }
+  .tutBox .tb { display: flex; gap: 6px; margin-top: 6px; }
+  .tutBox .tb button { flex: 1; margin-top: 0; font-size: 15px; }
 
   #actions { flex: none; display: flex; gap: 6px; padding: 6px 10px 10px; width: 100%; max-width: 390px; }
   #actions button { flex: 1; height: 46px; border: none; border-radius: 10px; background: var(--panel); color: var(--fg); font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; }
@@ -182,10 +207,24 @@
 <div id="main">
   <div id="box"><div id="dropRow"></div><div id="debt"></div></div>
   <div id="legendTypes"></div>
-  <div id="hint">좌우로 줄을 고르고 떼면 떨어져요. 같은 회사끼리 닿으면 한 단계 위로 합쳐져요.</div>
 </div>
 
-<div id="actions"><button id="bDex">도감</button><button id="bNew">새 판</button></div>
+<div id="actions"><button id="bDex">도감</button><button id="bSound">소리 켬</button><button id="bNew">새 판</button></div>
+<div id="menu"><div class="menuBox">
+  <div class="mt">★ROBOT-DOT-COM★</div>
+  <div class="ms">로봇닷컴</div>
+  <p>로봇 회사를 떨어뜨리고 합쳐서 유니콘으로 키우고, 상장시키세요.</p>
+  <button id="mStart" class="pri">바로 시작</button>
+  <button id="mTut">튜토리얼 보기</button>
+  <div class="mRow"><button id="mDex">도감</button><button id="mSound">소리 켬</button></div>
+</div></div>
+<div id="tut" class="hide"><div class="tutBox">
+  <div class="tn" id="tutN"></div>
+  <div class="tv" id="tutV"></div>
+  <div class="tt" id="tutT"></div>
+  <p id="tutP"></p>
+  <div class="tb"><button id="tPrev">이전</button><button id="tSkip">건너뛰기</button><button id="tNext" class="pri">다음</button></div>
+</div></div>
 <div id="banner"></div>
 <div id="dex" class="hide">
   <div class="dexHead"><div><div class="dt">로봇 회사 도감</div><div class="ds" id="dexSum"></div></div><button id="dexClose">닫기</button></div>
@@ -277,9 +316,13 @@ const M = {
   // 판 크기 : 가로를 화면 폭에 꽉 맞추고, 그 칸 크기로 세로에 들어가는 줄 수를 정함 (fitRows 일 때만 줄 수를 바꿈)
   function layout(fitRows) {
     const w = Math.min(window.innerWidth, 480) - 12;
-    const h = $('main').clientHeight - 54;
-    CELL = Math.floor((w - GAP * (C + 1)) / C);
-    if (fitRows) H = Math.max(5, Math.min(M.rows, Math.floor((h - GAP * 3) / (CELL + GAP)) - 1));
+    const h = $('main').clientHeight - 30;   // 아래 로봇 종류 한 줄
+    const full = Math.floor((w - GAP * (C + 1)) / C);
+    const rowsFor = cell => Math.floor((h - GAP * 3) / (cell + GAP)) - 1;
+    CELL = full;
+    // 6칸이 안 들어가면 칸을 조금(최대 12%) 줄여서라도 6칸
+    while (fitRows && rowsFor(CELL) < 6 && CELL > full * 0.88) CELL--;
+    if (fitRows) H = Math.max(5, Math.min(M.rows, rowsFor(CELL)));
     // 아주 짧은 화면에서는 최소 5줄이 들어가게 칸을 줄임
     CELL = Math.floor(Math.min(CELL, (h - GAP * (H + 3)) / (H + 1)));
     BW = C * CELL + GAP * (C + 1);
@@ -620,7 +663,7 @@ const M = {
     }
     spawn();
     paintHUD();
-    if (!SIM) setTimeout(() => queueCard('start', S.types[rnd(S.types.length)]), 300);
+    if (!SIM) { if (menuOpen) pendingStart = true; else setTimeout(() => queueCard('start', S.types[rnd(S.types.length)]), 300); }
   }
 
   // ---------- 연출 ----------
@@ -655,11 +698,21 @@ const M = {
   const buzz = p => { if (!SIM && navigator.vibrate) navigator.vibrate(p); };
 
   // ---------- 소리 : 파일 없이 브라우저에서 만듦 ----------
+  // 소리 켬·끔 (기억해 둠)
+  const sound = { on: (() => { try { return localStorage.getItem('rdc.sound') !== 'off'; } catch (e) { return true; } })() };
+  function paintSound() { for (const id of ['bSound', 'mSound']) $(id).textContent = sound.on ? '소리 켬' : '소리 끔'; }
+  function toggleSound() {
+    sound.on = !sound.on;
+    try { localStorage.setItem('rdc.sound', sound.on ? 'on' : 'off'); } catch (e) {}
+    paintSound();
+    if (sound.on) { sfx.unlock(); sfx.card(); }
+  }
   const sfx = (() => {
     let ac = null;
     const ctx = () => { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } } if (ac.state === 'suspended') ac.resume(); return ac; };
     function tone(f, dur, type = 'sine', vol = 0.2, f2 = null, delay = 0) {
-      const a = ctx(); if (!a || SIM) return;
+      if (!sound.on || SIM) return;
+      const a = ctx(); if (!a) return;
       const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
       o.type = type; o.frequency.setValueAtTime(f, t);
       if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
@@ -791,7 +844,7 @@ const M = {
     $('dexDetail').classList.remove('hide');
   }
   $('bDex').addEventListener('click', openDex);
-  $('dexClose').addEventListener('click', () => { $('dex').classList.add('hide'); S.paused = false; });
+  $('dexClose').addEventListener('click', () => { $('dex').classList.add('hide'); S.paused = menuOpen; });
   $('ddBack').addEventListener('click', () => $('dexDetail').classList.add('hide'));
   $('dexList').addEventListener('click', e => { const b = e.target.closest('.co'); if (b) openCompany(b.dataset.id); });
   $('ddCards').addEventListener('click', e => {
@@ -867,7 +920,65 @@ const M = {
     return out;
   };
 
+  // ---------- 시작 창 ----------
+  let menuOpen = true, pendingStart = false;
+  function closeMenu() {
+    sfx.unlock();
+    menuOpen = false;
+    $('menu').classList.add('hide');
+    $('tut').classList.add('hide');
+    S.paused = false;
+    if (pendingStart) { pendingStart = false; setTimeout(() => queueCard('start', S.types[rnd(S.types.length)]), 300); }
+  }
+  $('mStart').addEventListener('click', closeMenu);
+  $('mDex').addEventListener('click', () => { sfx.unlock(); openDex(); });
+  $('mSound').addEventListener('click', toggleSound);
+  $('bSound').addEventListener('click', toggleSound);
+  $('mTut').addEventListener('click', () => { sfx.unlock(); tutAt(0); $('tut').classList.remove('hide'); });
+
+  // ---------- 튜토리얼 : 그림이 들어간 일곱 장 ----------
+  // 미리보기 칸 : 로봇 종류 색조 × 단계 명도
+  function demo(typeKey, stageKey, size = 58, extra = '') {
+    const ty = M.types.find(t => t.key === typeKey), sh = M.shade[stageKey];
+    const vars = sh ? `--c:hsl(${ty.hue} ${sh[1] * ty.sat}% ${sh[0]}%);--c2:hsl(${ty.hue} ${Math.min(100, sh[1] * ty.sat + 10)}% ${sh[0] - 14}%);--c3:hsl(${ty.hue} ${Math.min(100, sh[1] * ty.sat + 12)}% ${Math.max(14, sh[0] - 34)}%);` : '';
+    return `<div class="ball st-${stageKey} ${extra}" style="${vars}width:${size}px;height:${size}px"><span class="face">${artHTML(ty.tile)}</span>` +
+      `<span class="stg" style="font-size:${Math.max(9, size * 0.19)}px">${M.stageDefs[stageKey].name}</span></div>`;
+  }
+  const TUT = [
+    { t: '떨어뜨리기', v: () => `<span>👆</span>${demo('arm', 'found')}<span class="big">↓</span>`,
+      p: '판 위에서 손가락을 좌우로 움직여 줄을 고르고, 떼면 그 줄 맨 아래까지 떨어져요. 위의 "다음"에서 다음에 올 회사를 미리 볼 수 있어요.' },
+    { t: '합병', v: () => `${demo('arm', 'found', 50)}+${demo('arm', 'found', 50)}<span class="big">→</span>${demo('arm', 'seed', 58)}`,
+      p: '같은 로봇, 같은 단계 회사가 위아래나 옆으로 닿으면 한 단계 위로 합쳐져요. 같은 색 계열이면 같은 로봇이고, 진할수록 높은 단계예요.' },
+    { t: '연쇄', v: () => `${demo('amr', 'seed', 50)}<span class="big">2연쇄!</span>${demo('amr', 'a', 58)}`,
+      p: '합쳐진 회사가 내려오거나 커지면서 또 같은 회사와 닿으면 연쇄가 터져요. 연쇄일수록 버는 돈이 몇 배로 늘어요.' },
+    { t: '유니콘과 상장', v: () => `${demo('hum', 'a', 46)}<span>→</span>${demo('hum', 'uni', 54)}<span>×2 → 상장</span>`,
+      p: '창업 → 시드 → 시리즈A → … → 유니콘으로 키워요. 유니콘 둘을 합치면 상장하고 레벨을 깨요. 레벨이 오르면 거쳐야 할 단계와 로봇 종류가 늘어요.' },
+    { t: '돈', v: () => `<span style="color:#F0426E">-10</span>${demo('legs', 'found', 54)}<span style="color:#1FA36B">+5</span>`,
+      p: '회사를 떨어뜨릴 때는 그 몸값만큼 돈이 나가고, 합병하면 돈이 들어와요. 적자여도 계속할 수 있지만 너무 커지면 위험해요.' },
+    { t: '위기', v: () => `${demo('legs', 'b', 58, 'firesale')}<span style="color:#C9443A">헐값!</span>`,
+      p: `적자가 ${M.crisisAt}을 넘으면 재정 위기, 판이 꽉 차면 자리 위기가 와요. 그러면 가장 비싼 회사부터 헐값에 팔려 나가요. 판을 넘치게 두지 마세요.` },
+    { t: '실제 회사 카드', v: () => `<div style="width:64px;height:84px;border-radius:10px;border:3px solid #1E3F8F;background:#FBFCFF;display:flex;align-items:center;justify-content:center;font-size:30px">📜</div>`,
+      p: '레벨을 시작하고 끝낼 때, 위기가 올 때 실제 로봇 회사의 이야기 카드를 받아요. 모은 카드는 아래 "도감"에서 다시 볼 수 있어요.' }
+  ];
+  let tutI = 0;
+  function tutAt(i) {
+    tutI = Math.max(0, Math.min(TUT.length - 1, i));
+    const sl = TUT[tutI];
+    $('tutN').textContent = `${tutI + 1} / ${TUT.length}`;
+    $('tutV').innerHTML = sl.v();
+    $('tutT').textContent = sl.t;
+    $('tutP').textContent = sl.p;
+    $('tPrev').style.visibility = tutI ? 'visible' : 'hidden';
+    $('tNext').textContent = tutI === TUT.length - 1 ? '시작하기' : '다음';
+    sfx.card();
+  }
+  $('tPrev').addEventListener('click', () => tutAt(tutI - 1));
+  $('tNext').addEventListener('click', () => { if (tutI === TUT.length - 1) closeMenu(); else tutAt(tutI + 1); });
+  $('tSkip').addEventListener('click', closeMenu);
+
+  paintSound();
   newGame();
+  S.paused = true;
 })();
 </script>
 </body>
