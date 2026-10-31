@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#56636F">
+<title>ROBOT-DOT-COM 로봇닷컴 : 헥사</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Sunflower:wght@700&family=Gowun+Dodum&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #56636F; --fg: #F2F5F7; --panel: #48535E; --me: #1FA8E8; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; }
+  body {
+    font-family: 'Gowun Dodum', sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    height: 100dvh; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    user-select: none; -webkit-user-select: none; touch-action: none; overscroll-behavior: none;
+  }
+  #hud { flex: none; text-align: center; padding: 8px 12px 4px; width: 100%; }
+  #title { font-family: 'Rye', serif; font-size: 24px; letter-spacing: 1px; line-height: 1.1; }
+  #titleRow { position: relative; padding: 0 58px; }
+  /* 제목은 소리 버튼 자리를 빼고 한 줄에 들어가게 화면 폭에 맞춰 줄어듦 */
+  #titleRow #title { font-size: min(21px, calc((100vw - 150px) / 14.6)); white-space: nowrap; }
+  /* 소리 버튼 : Robot Rush·Bosses of Our World와 같은 모양 (sound O 초록 / sound X 빨강) */
+  .mute { position: absolute; right: 0; top: 50%; transform: translateY(-50%); border: 0; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .3px; line-height: 1; padding: 4px 5px 4px 7px; border-radius: 12px; white-space: nowrap; font-family: 'IBM Plex Mono', monospace; }
+  .mute b { display: inline-block; min-width: 18px; margin-left: 3px; padding: 2px 0; border-radius: 6px; text-align: center; color: #fff; }
+  .mute b.on { background: #2E9E4F; }
+  .mute b.off { background: #C62828; }
+  /* ---------- 손맛 ---------- */
+  /* 착지 : 눌렸다 튀어 오름 */
+  .ball.land { transform-origin: 50% 100%; animation: land .32s ease-out; }
+  @keyframes land { 0% { scale: 1.25 .7; } 40% { scale: .9 1.12; } 70% { scale: 1.04 .97; } 100% { scale: 1 1; } }
+  .dust { position: absolute; z-index: 6; pointer-events: none; width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,.75); transform: translate(-50%, -50%); animation: dust .45s ease-out forwards; }
+  @keyframes dust { to { transform: translate(calc(-50% + var(--dx)), calc(-50% - 14px)) scale(2); opacity: 0; } }
+  /* 빨려 드는 회사 */
+  .ball.suck { transition: translate .12s ease-in, scale .12s ease-in, opacity .12s; scale: .4 .4; opacity: .4; }
+  /* 작은 흔들림 (합병마다) */
+  #box.nudge { animation: nudge .18s ease-in-out; }
+  @keyframes nudge { 0%, 100% { translate: 0 0; } 50% { translate: 0 3px; } }
+  /* 연쇄 번쩍 */
+  #boxFlash { position: absolute; inset: 0; z-index: 8; pointer-events: none; background: #fff; opacity: 0; border-radius: 14px; }
+  #boxFlash.on { animation: boxFlash .35s ease-out; }
+  @keyframes boxFlash { 0% { opacity: .45; } 100% { opacity: 0; } }
+  /* 동전 : 지갑으로 날아감 */
+  .coin { position: fixed; z-index: 40; width: 14px; height: 14px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 35% 30%, #FFF6C2, #FFD23F 45%, #C9971C); box-shadow: 0 1px 2px rgba(0,0,0,.4); transition: left .55s cubic-bezier(.5, -0.3, .7, 1), top .55s cubic-bezier(.2, -0.6, .5, 1), opacity .1s .5s; }
+  .stat.cash.bump { animation: bump .25s ease-out; }
+  @keyframes bump { 50% { scale: 1.18; } }
+  /* 꽃가루 */
+  .confetti { position: absolute; z-index: 9; top: -12px; width: 8px; height: 12px; pointer-events: none; animation: confetti linear forwards; }
+  @keyframes confetti { to { transform: translate(var(--dx), var(--fall)) rotate(var(--rot)); opacity: .2; } }
+  #subtitle { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 13px; opacity: .85; margin-top: 2px; }
+  #stats { display: flex; justify-content: center; gap: 4px; margin-top: 6px; font-size: 13px; white-space: nowrap; }
+  .stat { background: var(--panel); border-radius: 8px; padding: 3px 7px; display: flex; gap: 4px; align-items: center; }
+  .stat b { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 16px; }
+  .stat.cash b { color: #FFE27A; }
+  .stat.cash.red { background: #8E2A24; animation: urgent .6s ease-in-out infinite alternate; }
+  .stat.cash.red b { color: #fff; }
+  @keyframes urgent { from { opacity: 1; } to { opacity: .6; } }
+
+  #main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 6px; width: 100%; padding-top: 4px; }
+  #box.shake { animation: shake .35s ease-in-out; }
+  @keyframes shake { 0%, 100% { translate: 0 0; } 20% { translate: -5px 2px; } 40% { translate: 5px -2px; } 60% { translate: -4px 1px; } 80% { translate: 3px 0; } }
+  /* 도자기 파편 */
+  /* 파편 : 위로 솟았다가 떨어지며 도는 조각 */
+  .shard { position: absolute; z-index: 7; pointer-events: none; border-radius: 3px; box-shadow: 0 1px 2px rgba(0,0,0,.3); animation: shard .85s cubic-bezier(.2, .7, .4, 1) forwards; }
+  .shard.tri { border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  @keyframes shard {
+    0% { transform: translate(-50%, -50%) rotate(0) scale(.6); opacity: 1; }
+    35% { transform: translate(calc(-50% + var(--dx) * .7), calc(-50% + var(--dy))) rotate(calc(var(--rot) * .4)) scale(1); opacity: 1; }
+    75% { opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + 90px)) rotate(var(--rot)) scale(.8); opacity: 0; }
+  }
+  /* 합쳐지는 자리에서 퍼지는 링 */
+  .burst { position: absolute; z-index: 6; pointer-events: none; border-radius: 50%; border: 5px solid var(--bc); transform: translate(-50%, -50%) scale(.3); animation: burst .45s ease-out forwards; }
+  @keyframes burst { to { transform: translate(-50%, -50%) scale(1.9); opacity: 0; border-width: 1px; } }
+  .ball.flash { animation: flash .3s ease-out; }
+  @keyframes flash { 0% { filter: brightness(2.2); scale: 1.18; } 100% { filter: brightness(1); scale: 1; } }
+  /* 연쇄 */
+  .chain { position: absolute; z-index: 9; pointer-events: none; transform: translate(-50%, -50%); font-family: 'Sunflower', sans-serif; font-weight: 700; color: #FFE27A; -webkit-text-stroke: 1.5px #0C2163; text-shadow: 0 3px 0 #0C2163; white-space: nowrap; animation: chainPop 1s ease-out forwards; }
+  @keyframes chainPop { 0% { transform: translate(-50%, -50%) scale(.3); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1.25); opacity: 1; } 35% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { transform: translate(-50%, -90%) scale(1); opacity: 0; } }
+
+  /* 실제 회사 카드 : Delft 블루 도자기 타일 */
+  #card { position: fixed; inset: 0; z-index: 31; background: rgba(12, 22, 48, .72); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  #card.hide { display: none; }
+  .cardBox { width: 100%; max-width: 340px; background: #FBFCFF; color: #10275F; border-radius: 18px; border: 4px solid #1E3F8F; box-shadow: inset 0 0 0 3px #FBFCFF, inset 0 0 0 5px #6F94D6, 0 14px 30px rgba(0,0,0,.45); padding: 18px 18px 14px; text-align: center; animation: cardIn .35s cubic-bezier(.2, 1.4, .4, 1); }
+  @keyframes cardIn { from { transform: scale(.6) rotate(-6deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  .cardBox .ev { display: inline-block; background: #1E3F8F; color: #fff; border-radius: 999px; padding: 2px 14px; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 14px; }
+  .cardBox .pic { width: 74px; height: 74px; margin: 8px auto 2px; position: relative; }
+  .cardBox .pic img { width: 100%; height: 100%; object-fit: contain; filter: grayscale(1) sepia(1) saturate(5) hue-rotate(175deg) brightness(.55) contrast(1.6); }
+  .cardBox .co { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 22px; }
+  .cardBox .en { font-size: 12px; opacity: .65; }
+  .cardBox .ti { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; margin-top: 8px; color: #1E3F8F; }
+  .cardBox p { font-size: 14px; line-height: 1.6; margin-top: 6px; text-align: left; word-break: keep-all; }
+  .cardBox .yr { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 18px; margin-top: 10px; color: #1E3F8F; }
+  .cardBox .foot { display: flex; justify-content: space-between; font-size: 11px; opacity: .6; margin-top: 8px; }
+
+  /* 도감 : Delft 블루 */
+  #dex, #dexDetail { position: fixed; inset: 0; z-index: 29; background: #F3F6FC; color: #10275F; display: flex; flex-direction: column; padding: calc(10px + env(safe-area-inset-top)) 12px calc(10px + env(safe-area-inset-bottom)); }
+  #dex.hide, #dexDetail.hide { display: none; }
+  .dexHead { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 3px double #6F94D6; }
+  .dexHead .dt { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 20px; }
+  .dexHead .ds { font-size: 12px; opacity: .7; }
+  .dexHead button { height: 36px; padding: 0 14px; border: 2px solid #1E3F8F; border-radius: 18px; background: #fff; color: #1E3F8F; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 14px; }
+  #dexList, #ddCards { flex: 1; overflow-y: auto; padding-top: 6px; touch-action: pan-y; }
+  .grp .gh { display: flex; align-items: center; gap: 6px; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; margin: 10px 0 6px; color: #1E3F8F; }
+  .grp .gh img { width: 26px; height: 26px; filter: grayscale(1) sepia(1) saturate(5) hue-rotate(175deg) brightness(.55) contrast(1.6); }
+  .grp { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .grp .gh { grid-column: 1 / -1; }
+  .grp .co { position: relative; text-align: left; background: #fff; border: 2px solid #1E3F8F; border-radius: 10px; padding: 6px 8px; color: #10275F; font: inherit; }
+  .grp .co b { display: block; font-family: 'Sunflower', sans-serif; font-size: 14px; }
+  .grp .co span { font-size: 11px; opacity: .65; }
+  .grp .co i { position: absolute; right: 6px; top: 6px; font-style: normal; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #1E3F8F; }
+  .grp .co.locked { background: #E3E9F4; border-style: dashed; color: #7A8AAE; }
+  .ddTop { padding: 10px 2px; }
+  .ddTop .dn { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 24px; }
+  .ddTop .de { font-size: 12px; opacity: .65; }
+  .ddTop .do { font-size: 14px; margin-top: 6px; line-height: 1.5; word-break: keep-all; }
+  .dc { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: #fff; border: 2px solid #1E3F8F; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; color: #10275F; font: inherit; }
+  .dc em { font-style: normal; background: #1E3F8F; color: #fff; border-radius: 999px; padding: 1px 8px; font-family: 'Sunflower', sans-serif; font-size: 12px; flex: none; }
+  .dc b { flex: 1; font-family: 'Sunflower', sans-serif; font-size: 14px; }
+  .dc span { font-family: 'IBM Plex Mono', monospace; font-size: 12px; opacity: .7; }
+  .dc.locked { background: #E3E9F4; border-style: dashed; color: #7A8AAE; }
+  .dc.locked em { background: #9AA8C6; }
+
+  #box { flex: none; position: relative; background: #3E4852; border-radius: 14px; box-shadow: 0 0 0 4px #2E363E, 0 10px 24px rgba(0,0,0,.35); overflow: hidden; }
+  /* 육각 칸 (꼭짓점이 옆) */
+  .slot, .ball, .ball .face { clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+  .slot { position: absolute; background: #4A5662; }
+  .col { position: absolute; border-radius: 12px; background: rgba(255,255,255,.07); pointer-events: none; display: none; }
+  .col.on { display: block; }
+  .col.full { background: rgba(255, 90, 78, .16); }
+  #dropRow { position: absolute; left: 0; right: 0; top: 0; border-bottom: 2px dashed rgba(255,255,255,.15); pointer-events: none; }
+
+  /* 공 = 입체 뱃지 : 빛 받는 볼록면 + 진한 테두리 + 안쪽 흰 링 + 윗부분 광택 + 그림자 */
+  .ball {
+    position: absolute; left: 0; top: 0; border-radius: 50%; will-change: translate;
+    background: radial-gradient(circle at 34% 28%, rgba(255,255,255,.85) 0%, var(--c) 24%, var(--c2) 100%);
+    border: 3px solid var(--c3);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), inset 0 -6px 8px rgba(0,0,0,.22), 0 4px 0 var(--c3), 0 6px 8px rgba(0,0,0,.35);
+  }
+  /* 구르는 면 : 그림·테두리 무늬가 같이 돌고, 이름표·광택은 제자리 */
+  .ball .face { position: absolute; inset: 0; border-radius: 50%; }
+  /* 도자기 접시 테두리 무늬 */
+  .ball .face::before {
+    content: ''; position: absolute; inset: 7%; border-radius: 50%;
+    border: 2px dotted var(--ink); opacity: .7; pointer-events: none; z-index: 1;
+  }
+  .ball::after {
+    content: ''; position: absolute; left: 16%; top: 7%; width: 46%; height: 26%; border-radius: 50%;
+    background: linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,0)); transform: rotate(-24deg); pointer-events: none; z-index: 2;
+  }
+  /* 로봇 그림 크기 : 단계마다 커짐 (--aw) */
+  .ball .face .art { --aw: inherit; }
+  .ball .art { position: absolute; z-index: 1; --aw: 70%; width: var(--aw); height: var(--aw); left: calc((100% - var(--aw)) / 2); top: calc((88% - var(--aw)) / 2); }
+  /* 단계 숫자 : 같은 그림 + 같은 숫자 = 합쳐짐 */
+  .ball .num { position: absolute; z-index: 4; left: 5%; top: 5%; width: 30%; height: 30%; border-radius: 50%; background: #fff; color: var(--c3, #8A6A10); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 700; line-height: 1; box-shadow: 0 1px 2px rgba(0,0,0,.35); }
+  .st-uni .num { background: #FFE27A; color: #8A5A00; }
+
+  .ball .stg { position: absolute; z-index: 3; left: 50%; bottom: 6%; transform: translateX(-50%); box-shadow: 0 1px 2px rgba(0,0,0,.25); font-family: 'Sunflower', sans-serif; font-weight: 700; color: #1C3577; background: rgba(255,255,255,.9); border-radius: 5px; padding: 0 4px; line-height: 1.3; white-space: nowrap; }
+  .ball.held { opacity: .95; transition: translate .08s ease-out; z-index: 5; }
+  /* 사각 칸 뱃지 : 공과 같은 광택·테두리, 모서리만 둥근 사각 */
+  /* 육각 뱃지 : 바깥 = 테두리색, 안쪽 육각 = 빛 받는 볼록면 */
+  .ball { border-radius: 0; border: none; transition: translate .13s ease-in; background: var(--c3); box-shadow: none; }
+  .ball .face { inset: 6%; background: radial-gradient(circle at 36% 30%, rgba(255,255,255,.85) 0%, var(--c) 26%, var(--c2) 100%); }
+  .ball .face::before { display: none; }
+  .st-uni .face { background: none; }
+  .ball::after { left: 22%; top: 9%; width: 42%; height: 22%; }
+  .ball .num { left: 50%; top: 5%; width: 24%; height: 26%; transform: translateX(-50%); }
+  .ball.gone { opacity: 0; transition: translate .12s, opacity .12s; }
+  .ball.pop { animation: pop .25s ease-out; }
+  .ball.pick { animation: pickGlow .55s ease-in-out infinite alternate; }
+  .ball.sel { filter: brightness(1.15) drop-shadow(0 0 8px #FFE27A); }
+  @keyframes pop { 0% { scale: .7; } 60% { scale: 1.15; } 100% { scale: 1; } }
+  @keyframes pickGlow { from { filter: brightness(1); } to { filter: brightness(1.2) drop-shadow(0 0 6px #FF8A80); } }
+  /* 기본 색 (토널 셰이드를 못 쓸 때). 실제 색은 로봇 종류 색조 × 단계 명도로 칸마다 정함 */
+  .st-found { --c: #FFE45C; --c2: #F5B700; --c3: #B07A00; --ink: #FFFFFF; }
+  .st-seed  { --c: #FFB15C; --c2: #F57A1F; --c3: #B04A00; --ink: #FFFFFF; }
+  .st-a     { --c: #FF8FB0; --c2: #F0426E; --c3: #A8183F; --ink: #FFFFFF; }
+  .st-b     { --c: #B79CFF; --c2: #7B4DF0; --c3: #4A1FA8; --ink: #FFFFFF; }
+  .st-c     { --c: #7FE0F0; --c2: #1FA8C8; --c3: #0B6A85; --ink: #FFFFFF; }
+  .st-uni   { --c3: #C8962A; --ink: #FFFFFF; background: #fff; border-color: #E8B94A; }
+  /* 유니콘 : 빨강에서 보라까지 무지개 띠가 흐르고, 별이 반짝임 */
+  .ball .rb { position: absolute; inset: 0; border-radius: inherit; z-index: 0; pointer-events: none;
+    /* 빨-주-노-초-파-남-보 다음 다시 보라→빨강으로 이어지는 반복 띠(한 바퀴 70px, 대각선).
+       가로로 70 / cos(30°) = 80.8px 밀면 정확히 한 바퀴라 끊김 없이 흐름 */
+    background: repeating-linear-gradient(120deg, #FF4D4D 0px, #FF9F1C 10px, #FFE14D 20px, #4DD67A 30px, #3FA9F5 40px, #5B5BE8 50px, #A64DF0 60px, #FF4D4D 70px);
+    animation: rainbow 2.2s linear infinite; }
+  .ball .rb::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at 34% 28%, rgba(255,255,255,.7), rgba(255,255,255,0) 55%); }
+  @keyframes rainbow { from { background-position: 0 0; } to { background-position: 80.83px 0; } }
+  .st-uni { animation: uniGlow 1.2s ease-in-out infinite alternate; }
+  @keyframes uniGlow { from { box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 4px 0 var(--c3), 0 0 6px 1px rgba(255, 226, 122, .5); } to { box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 4px 0 var(--c3), 0 0 16px 4px rgba(255, 180, 240, .9); } }
+  .ball .tw { position: absolute; z-index: 5; color: #fff; pointer-events: none; text-shadow: 0 0 4px #fff, 0 0 8px #FFE27A; animation: twinkle 1.4s ease-in-out infinite; }
+  .ball .tw.t1 { left: 12%; top: 50%; font-size: 13px; }
+  .ball .tw.t2 { right: 10%; top: 14%; font-size: 11px; animation-delay: .5s; }
+  .ball .tw.t3 { right: 16%; bottom: 26%; font-size: 9px; animation-delay: .9s; }
+  @keyframes twinkle { 0%, 100% { opacity: 0; scale: .4; rotate: 0deg; } 50% { opacity: 1; scale: 1.15; rotate: 45deg; } }
+
+  .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .art.bob { transform-origin: 50% 85%; animation: artBob 1s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .art.bob img.b { display: none; }
+  .art.bob.swap img.b { display: block; }
+  .art.bob.swap img { animation: artA 1s steps(1, end) infinite; animation-delay: var(--d, 0s); }
+  .art.bob.swap img.b { animation-name: artB; }
+  @keyframes artA { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes artB { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 1; } }
+  /* 들썩임 + 크기 변화 : 뛰어오를 때 길쭉하게, 내려앉을 때 납작하게 */
+  @keyframes artBob {
+    0%, 100% { rotate: -14deg; translate: 0 0; scale: 1.08 .92; }
+    25% { rotate: 0deg; translate: 0 -18%; scale: .94 1.08; }
+    50% { rotate: 14deg; translate: 0 0; scale: 1.08 .92; }
+    75% { rotate: 0deg; translate: 0 -18%; scale: .94 1.08; }
+  }
+
+  #legendTypes { display: flex; gap: 10px; justify-content: center; font-size: 12px; }
+  #legendTypes span { display: inline-flex; align-items: center; gap: 3px; }
+  #legendTypes img { width: 22px; height: 22px; }
+  /* 짧은 화면 : 제목을 줄여 판에 한 줄 더 */
+  @media (max-height: 760px) {
+    #subtitle { display: none; }
+    #titleRow #title { font-size: min(18px, calc((100vw - 150px) / 14.6)); }
+    #hud { padding-top: 4px; }
+    #stats { margin-top: 4px; }
+  }
+  /* 시작 창·튜토리얼 */
+  #menu, #tut { position: fixed; inset: 0; z-index: 28; background: rgba(30, 36, 42, .92); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  #menu.hide, #tut.hide { display: none; }
+  .menuBox, .tutBox { width: 100%; max-width: 340px; background: #F7F9FC; color: #1E2A3A; border-radius: 20px; padding: 22px 20px 18px; text-align: center; box-shadow: 0 14px 30px rgba(0,0,0,.45); animation: cardIn .35s cubic-bezier(.2, 1.4, .4, 1); }
+  .menuBox .mt { font-family: 'Rye', serif; font-size: 25px; color: #2A3A55; }
+  .menuBox .ms { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; opacity: .7; }
+  .menuBox p { font-size: 14px; margin: 10px 0 14px; line-height: 1.5; word-break: keep-all; }
+  .menuBox button, .tutBox button { display: block; width: 100%; height: 50px; margin-top: 8px; border: none; border-radius: 12px; background: #E3E8EF; color: #1E2A3A; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 16px; }
+  .menuBox button.pri, .tutBox button.pri { background: var(--me); color: #fff; }
+  .menuBox .mRow { display: flex; gap: 8px; }
+  .menuBox .mRow button { flex: 1; }
+  .tutBox .tn { font-family: 'IBM Plex Mono', monospace; font-size: 12px; opacity: .5; }
+  .tutBox .tv { height: 96px; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 22px; color: #2A3A55; position: relative; }
+  .tutBox .tv .ball { position: relative; flex: none; transition: none; }
+  .tutBox .tv .big { font-size: 30px; color: #F0426E; }
+  .tutBox .tt { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 20px; }
+  .tutBox p { font-size: 14.5px; line-height: 1.6; margin-top: 6px; text-align: left; word-break: keep-all; min-height: 92px; }
+  .tutBox .tb { display: flex; gap: 6px; margin-top: 6px; }
+  .tutBox .tb button { flex: 1; margin-top: 0; font-size: 15px; }
+
+  #actions { flex: none; display: flex; gap: 6px; padding: 6px 10px 10px; width: 100%; max-width: 390px; }
+  #actions button { flex: 1; height: 46px; border: none; border-radius: 10px; background: var(--panel); color: var(--fg); font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; }
+  /* 재정 위기 : 헐값에 팔려 나가는 공 */
+  .ball.firesale { filter: brightness(1.3) drop-shadow(0 0 10px #FF5A4E); scale: 1.12; transition: scale .25s; z-index: 6; }
+  #banner.crisis { background: linear-gradient(135deg, #8E2A24, #C9443A); }
+  #debt { position: absolute; right: 8px; top: 4px; font-size: 11px; color: #FF8A80; font-family: 'Sunflower', sans-serif; font-weight: 700; pointer-events: none; z-index: 4; }
+
+  .float { position: absolute; z-index: 6; pointer-events: none; transform: translate(-50%, -50%); font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 18px; color: #FFE27A; text-shadow: 0 1px 0 #2A2F35, 0 0 4px #2A2F35; animation: floatUp 1.1s ease-out forwards; white-space: nowrap; }
+  @keyframes floatUp { to { transform: translate(-50%, -60px); opacity: 0; } }
+  #banner { position: fixed; left: 50%; top: 40%; z-index: 20; pointer-events: none; background: rgba(30, 36, 42, .9); border-radius: 12px; padding: 12px 18px; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 18px; text-align: center; opacity: 0; transform: translate(-50%, -50%) scale(.5); white-space: nowrap; }
+  #banner.show { animation: banner 1.8s ease-out; }
+  #banner.ipo { background: linear-gradient(135deg, #C2367F, #6A4BD8); }
+  @keyframes banner { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 25% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -70%) scale(1); } }
+
+  #over { position: fixed; inset: 0; z-index: 30; background: rgba(40, 47, 54, .94); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 20px; }
+  #over.hide { display: none; }
+  #over .big { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 26px; }
+  #over .score { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 46px; color: #FFE27A; }
+  #over p { font-size: 14px; opacity: .85; line-height: 1.6; }
+  #over button { margin-top: 12px; height: 52px; padding: 0 28px; border: none; border-radius: 10px; background: var(--me); color: #10222C; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 17px; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="titleRow"><div id="title">★ROBOT-DOT-COM★</div><button class="mute" id="bSound" type="button" aria-label="소리 켜기/끄기">sound <b class="on">O</b></button></div>
+  <div id="subtitle">로봇닷컴 : 헥사 떨어뜨리기</div>
+  <div id="stats">
+    <div class="stat"><span>레벨</span><b id="sLevel">1</b></div>
+    <div class="stat"><span>턴</span><b id="sTurn">0</b></div>
+    <div class="stat cash" id="sCashBox"><span>지갑</span><b id="sCash">0</b></div>
+    <div class="stat"><span>몸값</span><b id="sBoard">0</b></div>
+    <div class="stat"><span>다음</span><span id="nextBall"></span></div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="box"><div id="dropRow"></div><div id="debt"></div><div id="boxFlash"></div></div>
+</div>
+
+<div id="actions"><button id="bDex">도감</button><button id="bNew">새 판</button></div>
+<div id="menu"><div class="menuBox">
+  <div class="mt">★ROBOT-DOT-COM★</div>
+  <div class="ms">로봇닷컴</div>
+  <p>로봇 회사를 떨어뜨리고 합쳐서 유니콘으로 키우고, 상장시키세요.</p>
+  <button id="mStart" class="pri">바로 시작</button>
+  <button id="mTut">튜토리얼 보기</button>
+  <div class="mRow"><button id="mDex">도감</button><button id="mSound">소리 켬</button></div>
+</div></div>
+<div id="tut" class="hide"><div class="tutBox">
+  <div class="tn" id="tutN"></div>
+  <div class="tv" id="tutV"></div>
+  <div class="tt" id="tutT"></div>
+  <p id="tutP"></p>
+  <div class="tb"><button id="tPrev">이전</button><button id="tSkip">건너뛰기</button><button id="tNext" class="pri">다음</button></div>
+</div></div>
+<div id="banner"></div>
+<div id="dex" class="hide">
+  <div class="dexHead"><div><div class="dt">로봇 회사 도감</div><div class="ds" id="dexSum"></div></div><button id="dexClose">닫기</button></div>
+  <div id="dexList"></div>
+  <div id="dexDetail" class="hide">
+    <div class="dexHead"><button id="ddBack">‹ 목록</button></div>
+    <div class="ddTop"><div class="dn" id="ddName"></div><div class="de" id="ddEn"></div><div class="do" id="ddOne"></div></div>
+    <div id="ddCards"></div>
+  </div>
+</div>
+<div id="card" class="hide"><div class="cardBox">
+  <div class="ev" id="cEv"></div>
+  <div class="pic"><img id="cPic" alt=""></div>
+  <div class="co" id="cCo"></div>
+  <div class="en" id="cEn"></div>
+  <div class="ti" id="cTi"></div>
+  <p id="cTx"></p>
+  <div class="yr" id="cYr"></div>
+  <div class="foot"><span id="cDex"></span><span>탭하면 닫혀요</span></div>
+</div></div>
+<div id="over" class="hide">
+  <div class="big" id="overTitle"></div>
+  <div class="score" id="overScore"></div>
+  <p id="overText"></p>
+  <button id="bRestart">다시 창업</button>
+</div>
+
+<script>
+// 시제품 수치표 (확정되면 config.js로 옮김)
+const M = {
+  cols: 5,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
+  rows: 7,                 // 높이 (?h=)
+  // 레벨별 난이도 : 유니콘까지 거치는 단계(ladder), 로봇 종류 수(types), 새 회사가 창업·시드투자·시리즈A로 나올 비율(spawn).
+  // 처음엔 시리즈A 다음 바로 유니콘, 나중엔 시리즈B·C까지. 마지막 값이 이후 레벨에 계속. ?t= 로 종류 수 고정
+  levels: [
+    { ladder: ['found', 'seed', 'a', 'uni', 'ipo'], types: 2, spawn: [0.6, 0.4, 0] },
+    { ladder: ['found', 'seed', 'a', 'b', 'uni', 'ipo'], types: 2, spawn: [0.6, 0.4, 0] },
+    { ladder: ['found', 'seed', 'a', 'uni', 'ipo'], types: 3, spawn: [0.6, 0.4, 0] },
+    { ladder: ['found', 'seed', 'a', 'b', 'uni', 'ipo'], types: 3, spawn: [0.5, 0.4, 0.1] },
+    { ladder: ['found', 'seed', 'a', 'b', 'c', 'uni', 'ipo'], types: 2, spawn: [0.4, 0.4, 0.2] }
+  ],
+  crisisAt: 400,           // 적자가 이만큼을 넘으면 재정 위기
+  startCash: 100,
+  // 단계 : 같은 로봇·같은 단계 회사 둘이 닿으면 그 레벨 사다리의 다음 단계. 유니콘 둘이 합쳐지면 상장(레벨 클리어).
+  // 떨어뜨릴 때 그 회사 몸값만큼 돈이 나가고, 합병하면 (새 몸값 - 두 몸값) × 연쇄 횟수만큼 들어옴.
+  stageDefs: {
+    found: { name: '창업',    value: 10,   ink: '#F5B700' },
+    seed:  { name: '시드투자', value: 25,   ink: '#F57A1F' },
+    a:     { name: '시리즈A', value: 60,   ink: '#F0426E' },
+    b:     { name: '시리즈B', value: 150,  ink: '#7B4DF0' },
+    c:     { name: '시리즈C', value: 360,  ink: '#1FA8C8' },
+    uni:   { name: '유니콘',  value: 800,  ink: '#C9A2FF' },   // 몸값은 앞 단계 둘보다 커야 합병이 이득
+    ipo:   { name: '상장',    value: 1000, ink: '#FFE27A' }
+  },
+  ipoMul: 5,               // 상장 대금 = 상장 단계 몸값 × 이 배수
+  dumpRate: 0.5,           // 자리 위기 매각 = 몸값의 이 비율
+  fireSaleRate: 0.3,       // 재정 위기 헐값 = 몸값의 이 비율
+  types: [
+    // hue·sat : 로봇 종류마다 색조 하나 (블루·에메랄드·마룬·보라). 단계가 오를수록 채도↑ 명도↓
+    { key: 'arm',  name: '협동로봇',   tile: 'robot-cobot', grade: 1.0, hue: 214, sat: 1.0 },
+    { key: 'amr',  name: 'AMR',        tile: 'robot-amr',   grade: 0.8, hue: 160, sat: 1.0 },
+    { key: 'legs', name: '4족보행',    tile: 'robot-quad',  grade: 1.3, hue: 348, sat: 0.85 },
+    { key: 'hum',  name: '휴머노이드', tile: 'tile-hum',    grade: 2.0, hue: 272, sat: 0.95 }
+  ],
+  // 단계별 명도·채도 (토널 셰이드). 유니콘은 무지개라 따로
+  shade: { found: [96, 34], seed: [82, 48], a: [63, 64], b: [35, 78], c: [19, 92] }
+};
+
+(() => {
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('t')) M.levels.forEach(l => { l.types = +qs.get('t'); });
+  if (qs.get('c')) M.cols = +qs.get('c');   // 시험용 : 줄 수
+  if (qs.get('h')) M.rows = +qs.get('h');   // 시험용 : 높이
+
+  const C = M.cols;
+  let H = M.rows;   // 높이 : 화면에 들어가는 만큼 (최대 M.rows, 최소 5)
+  const $ = id => document.getElementById(id);
+  const rnd = n => Math.floor(Math.random() * n);
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const boxEl = $('box');
+  let SIM = false;
+  const sleep = ms => SIM ? null : new Promise(r => setTimeout(r, ms));
+
+  // grid[r][c] : r = 0이 맨 위. 화면에는 맨 위에 '들고 있는 줄'이 한 칸 더 있음.
+  const S = { grid: [], cash: 0, turn: 0, level: 1, types: [], seen: {}, cur: null, next: null, col: 2, busy: false, over: false, cleared: false, crisis: false, paused: false, dumps: 0, nextId: 1, ipos: 0, firstIpo: 0, minCash: 0, crises: 0, chain: 0 };
+
+  // 판 크기 : 화면 폭을 꽉 채움
+  let CELL = 56, GAP = 5, BW = 360;
+  // 판 크기 : 가로를 화면 폭에 꽉 맞추고, 그 칸 크기로 세로에 들어가는 줄 수를 정함 (fitRows 일 때만 줄 수를 바꿈)
+  // 육각 판 : 칸 폭 CELL(=육각 가로), 높이 HH. 줄 간격 SX = 0.75칸, 칸 간격 SY = 높이. 홀수 줄은 SY/2 아래.
+  let HH = 48, SX = 42, SY = 50;
+  const HG = 3;   // 육각 사이 틈
+  function geom() { HH = Math.round(CELL * 0.866); SX = CELL * 0.75 + HG; SY = HH + HG; }
+  function layout(fitRows) {
+    const w = Math.min(window.innerWidth, 480) - 12;
+    const h = $('main').clientHeight - 6;
+    const full = Math.floor((w - GAP * 2 - HG * (C - 1)) / (0.75 * (C - 1) + 1));
+    const rowsFor = cell => { const sy = cell * 0.866 + HG; return Math.floor((h - GAP * 3 - sy / 2) / sy) - 1; };
+    CELL = full;
+    while (fitRows && rowsFor(CELL) < 6 && CELL > full * 0.88) CELL--;
+    if (fitRows) H = Math.max(5, Math.min(M.rows, rowsFor(CELL)));
+    geom();
+    BW = GAP * 2 + (C - 1) * SX + CELL;
+    boxEl.style.width = BW + 'px';
+    boxEl.style.height = GAP * 3 + (H + 1) * SY + SY / 2 + 'px';
+    $('dropRow').style.height = (SY + GAP) + 'px';
+  }
+  // 칸 왼쪽 위 (r = -1 은 들고 있는 줄)
+  const px = (c, r) => [GAP + c * SX, GAP * 2 + (r + 1) * SY + (c % 2 ? SY / 2 : 0)];
+  // 육각 이웃 6칸 (홀수 줄이 반 칸 아래)
+  const NBR = (r, c) => (c % 2
+    ? [[r + 1, c], [r, c - 1], [r, c + 1], [r + 1, c - 1], [r + 1, c + 1], [r - 1, c]]
+    : [[r + 1, c], [r, c - 1], [r, c + 1], [r - 1, c - 1], [r - 1, c + 1], [r - 1, c]]);
+  const mid = (c, r) => { const [x, y] = px(c, r); return [x + CELL / 2, y + HH / 2]; };
+
+  const LV = () => M.levels[Math.min(S.level - 1, M.levels.length - 1)];
+  function spawnStage() {
+    const w = LV().spawn;
+    let x = Math.random() * w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < w.length; i++) { x -= w[i]; if (x < 0) return i; }
+    return 0;
+  }
+  const stageCls = stage => 'st-' + S.stages[stage].key;
+  // 토널 셰이드 : 로봇 종류의 색조 하나로, 단계가 오를수록 진하게
+  function toneOf(type, stage) {
+    const sh = M.shade[S.stages[stage].key];
+    if (!sh) return null;
+    const [L, Sat] = sh, sat = Sat * type.sat;
+    // 그늘(c2)·테두리(c3)는 명도에 비례 : 진한 단계일수록 확실히 어두워짐
+    return {
+      c: `hsl(${type.hue} ${sat}% ${L}%)`,
+      c2: `hsl(${type.hue} ${Math.min(100, sat + 10)}% ${Math.round(L * 0.72)}%)`,
+      c3: `hsl(${type.hue} ${Math.min(100, sat + 12)}% ${Math.round(L * 0.45)}%)`
+    };
+  }
+  function applyTone(el, t) {
+    const tn = toneOf(t.type, t.stage);
+    for (const k of ['c', 'c2', 'c3']) tn ? el.style.setProperty('--' + k, tn[k]) : el.style.removeProperty('--' + k);
+  }
+  const valueOf = (stage, type) => Math.round(S.stages[stage].value * type.grade);
+  const value = t => valueOf(t.stage, t.type);
+  const newTile = () => ({ id: S.nextId++, type: S.types[rnd(S.types.length)], stage: spawnStage() });
+  const tiles = () => { const out = []; for (let r = 0; r < H; r++) for (let c = 0; c < C; c++) if (S.grid[r][c]) out.push(S.grid[r][c]); return out; };
+  const colFull = c => !!S.grid[0][c];
+  const allFull = () => [...Array(C).keys()].every(colFull);
+  const same = (a, b) => a && b && a.type === b.type && a.stage === b.stage;
+
+  function artHTML(tile) {
+    return `<span class="art bob swap" style="--d:-${(Math.random() * 1.1).toFixed(2)}s">` +
+      `<img src="assets/${tile}-a.png" alt=""><img class="b" src="assets/${tile}-b.png" alt=""></span>`;
+  }
+  // 단계 숫자와 로봇 그림 크기 (단계 이름으로 정해서 어느 레벨에서나 같음)
+  const STAGE_NUM = { found: '1', seed: '2', a: '3', b: '4', c: '5', uni: '★' };
+  const STAGE_ART = { found: '46%', seed: '55%', a: '63%', b: '70%', c: '76%', uni: '78%' };
+  const faceHTML = (tile, key, size) =>
+    (key === 'uni' ? '<span class="rb"></span><span class="tw t1">✦</span><span class="tw t2">✦</span><span class="tw t3">✦</span>' : '') +
+    `<span class="face" style="--aw:${STAGE_ART[key]}">${artHTML(tile)}</span>` +
+    `<span class="num" style="font-size:${Math.max(9, size * 0.2)}px">${STAGE_NUM[key]}</span>` +
+    `<span class="stg" style="font-size:${Math.max(9, size * 0.19)}px">${M.stageDefs[key].name}</span>`;
+  function tileEl(t) {
+    const el = document.createElement('div');
+    el.className = `ball ${stageCls(t.stage)}`;
+    applyTone(el, t);
+    el.style.width = CELL + 'px'; el.style.height = HH + 'px';
+    el.innerHTML = faceHTML(t.type.tile, S.stages[t.stage].key, CELL);
+    el._t = t;
+    boxEl.appendChild(el);
+    t.el = el;
+    return el;
+  }
+  function restyle(t) {
+    t.el.className = `ball ${stageCls(t.stage)}`;
+    applyTone(t.el, t);
+    const key = S.stages[t.stage].key;
+    if (key === 'uni' && !t.el.querySelector('.rb')) t.el.insertAdjacentHTML('afterbegin', '<span class="rb"></span><span class="tw t1">✦</span><span class="tw t2">✦</span><span class="tw t3">✦</span>');
+    t.el.querySelector('.stg').textContent = S.stages[t.stage].name;
+    t.el.querySelector('.num').textContent = STAGE_NUM[key];
+    t.el.querySelector('.face').style.setProperty('--aw', STAGE_ART[key]);
+  }
+  const place = t => { const [x, y] = px(t.c, t.r); t.el.style.translate = `${x}px ${y}px`; };
+
+  let colEls = [];
+  function buildBoard() {
+    layout();
+    for (const el of boxEl.querySelectorAll('.slot, .col, .ball')) el.remove();
+    colEls = [];
+    for (let c = 0; c < C; c++) {
+      const ce = document.createElement('div');
+      ce.className = 'col';
+      const [x] = px(c, 0);
+      ce.style.left = (x + CELL * 0.12) + 'px'; ce.style.width = (CELL * 0.76) + 'px';
+      ce.style.top = GAP + 'px'; ce.style.bottom = GAP + 'px';
+      boxEl.appendChild(ce); colEls.push(ce);
+      for (let r = 0; r < H; r++) {
+        const s = document.createElement('div');
+        s.className = 'slot';
+        const [sx, sy] = px(c, r);
+        s.style.left = sx + 'px'; s.style.top = sy + 'px'; s.style.width = CELL + 'px'; s.style.height = HH + 'px';
+        boxEl.appendChild(s);
+      }
+    }
+    for (const t of tiles()) { tileEl(t); place(t); }
+    if (S.cur) { tileEl(S.cur).classList.add('held'); aim(S.col); }
+  }
+
+  // 들고 있는 회사를 c번 줄 위로
+  function aim(c) {
+    S.col = Math.max(0, Math.min(C - 1, c));
+    if (SIM) return;
+    if (S.cur && S.cur.el) { const [x, y] = px(S.col, -1); S.cur.el.style.translate = `${x}px ${y}px`; }
+    colEls.forEach((ce, i) => { ce.classList.toggle('on', i === S.col && !S.busy); ce.classList.toggle('full', i === S.col && colFull(i)); });
+  }
+
+  function spawn() {
+    S.cur = S.next || newTile();
+    S.next = newTile();
+    if (SIM) return;
+    tileEl(S.cur).classList.add('held');
+    aim(S.col);
+    const nb = $('nextBall');
+    nb.innerHTML = '';
+    const mini = document.createElement('div');
+    mini.className = `ball ${stageCls(S.next.stage)}`;
+    applyTone(mini, S.next);
+    mini.style.cssText = 'position:relative;display:inline-block;width:20px;height:20px;border-width:2px;vertical-align:middle;box-shadow:none;transition:none';
+    mini.innerHTML = artHTML(S.next.type.tile);
+    nb.appendChild(mini);
+  }
+
+  // 떨어뜨리기 : 그 줄 맨 아래 빈칸까지 → 합병을 끝까지 풂
+  async function dropAt(c) {
+    if (S.busy || S.over || S.crisis || S.paused || !S.cur) return;
+    if (colFull(c)) { banner('이 줄은 꽉 찼어요'); return; }
+    S.busy = true;
+    const t = S.cur;
+    S.cur = null;
+    let r = H - 1;
+    while (S.grid[r][c]) r--;
+    t.c = c; t.r = r;
+    S.grid[r][c] = t;
+    const cost = value(t);
+    S.cash -= cost;
+    S.minCash = Math.min(S.minCash, S.cash);
+    S.turn++;
+    S.chain = 0;
+    if (!SIM) {
+      t.el.classList.remove('held');
+      t.el.style.transitionDuration = (0.05 * (r + 1) + 0.08) + 's';
+      place(t);
+      sfx.drop();
+      aim(S.col);
+      const [mx, my] = mid(c, r);
+      floatAt(mx, my, '-' + cost, true);
+      paintHUD();
+      aim(S.col);
+      await sleep(50 * (r + 1) + 90);
+      t.el.style.transitionDuration = '';
+      // 착지 : 눌렸다 튀어 오르고, 먼지, 툭, 짧은 진동
+      t.el.classList.remove('land'); void t.el.offsetWidth; t.el.classList.add('land');
+      dust(mx, my + HH / 2 - 4);
+      sfx.land(); buzz(10); nudge();
+    }
+    await resolve([t]);
+    S.busy = false;
+    if (S.over) return;
+    spawn();
+    await settle();
+  }
+
+  // 닿은 같은 회사끼리 합병 → 빈자리로 위 회사들이 내려옴 → 또 합병 (연쇄, 수입이 연쇄 횟수만큼 배로)
+  // 합병 : 움직인 회사(t)가 닿은 같은 회사를 전부 한꺼번에 흡수하고 제자리에 남음.
+  //   하나와 닿으면 한 단계, 둘이면 두 단계, 셋이면 세 단계 위로. 위 칸이 내려와 또 닿으면 연쇄(수입 배수).
+  async function resolve(active) {
+    while (active.length) {
+      const t = active.shift();
+      if (!t || !S.grid[t.r] || S.grid[t.r][t.c] !== t) continue;
+      const gone = NBR(t.r, t.c)
+        .filter(([r, c]) => r >= 0 && r < H && c >= 0 && c < C).map(([r, c]) => S.grid[r][c]).filter(o => same(t, o));
+      if (!gone.length) continue;
+      for (const g of gone) S.grid[g.r][g.c] = null;
+      const stage = Math.min(S.top, t.stage + gone.length);
+      if (!SIM) for (const g of gone) { g.el.style.translate = t.el.style.translate; g.el.classList.add('suck'); setTimeout(() => g.el.remove(), 160); }
+      if (stage === S.top) {
+        S.grid[t.r][t.c] = null;
+        if (!SIM) await sleep(110);
+        await ipo(t, t);
+        return;
+      }
+      S.chain++;
+      const gain = (valueOf(stage, t.type) - (gone.length + 1) * value(t)) * S.chain;
+      t.stage = stage;
+      S.cash += gain;
+      if (!SIM) {
+        await sleep(110);
+        restyle(t);
+        t.el.classList.remove('pop', 'flash'); void t.el.offsetWidth; t.el.classList.add('flash');
+        const [mx, my] = mid(t.c, t.r);
+        floatAt(mx, my - CELL * 0.3, '+' + gain + (stage >= S.top - 1 ? ' ' + S.stages[stage].name + '!' : ''));
+        shards(mx, my, stage, 16 + stage * 3 + gone.length * 8, t.type);
+        sfx.merge(stage, S.chain + gone.length - 1);
+        coins(mx, my, gain);
+        if (gone.length >= 2) chainText(mx, my - CELL * 0.9, `${gone.length + 1}개 동시 합병!`);
+        if (S.chain >= 2) { chainText(mx, my - CELL * 0.4, S.chain); shake(); flashBox(); buzz([25, 30, 25 + S.chain * 10]); }
+        else if (gone.length >= 2) { shake(); flashBox(); buzz([30, 30, 60]); }
+        else { nudge(); buzz(stage >= S.top - 1 ? [40, 40, 80] : 18); }
+        if (stage === S.top - 1) { sfx.unicorn(); confetti(40); }
+        paintHUD();
+        await sleep(130);
+      }
+      const moved = await gravity();
+      active.unshift(t, ...moved);
+    }
+  }
+
+  // 빈칸 위의 회사들이 아래로 내려옴. 움직인 회사 목록을 돌려줌.
+  async function gravity() {
+    const moved = [];
+    for (let c = 0; c < C; c++) {
+      let w = H - 1;
+      for (let r = H - 1; r >= 0; r--) {
+        const t = S.grid[r][c];
+        if (!t) continue;
+        if (r !== w) { S.grid[w][c] = t; S.grid[r][c] = null; t.r = w; moved.push(t); }
+        w--;
+      }
+    }
+    if (!SIM && moved.length) { for (const t of moved) place(t); await sleep(140); }
+    return moved;
+  }
+
+  async function ipo(keep, gone) {
+    const v = valueOf(S.top, keep.type) * M.ipoMul;
+    S.cash += v;
+    S.ipos++;
+    if (!S.firstIpo) S.firstIpo = S.turn;
+    S.over = true; S.cleared = true;
+    if (SIM) return;
+    keep.el.classList.add('gone');
+    setTimeout(() => keep.el.remove(), 200);
+    const [mx, my] = mid(keep.c, keep.r);
+    floatAt(mx, my, '+' + v);
+    banner(`${keep.type.name} 상장! +${v}`, true);
+    shards(mx, my, S.top - 1, 40);
+    shake(); flashBox(); confetti(90); coins(mx, my, v);
+    buzz([60, 40, 60, 40, 120]);
+    sfx.ipo();
+    paintHUD();
+    const showClear = () => setTimeout(() => {
+      $('overTitle').textContent = `레벨 ${S.level} 클리어!`;
+      $('overScore').textContent = '+' + v;
+      $('overText').innerHTML = `${keep.type.name} 회사가 상장했어요 · ${S.turn}턴 · 위기 매각 ${S.dumps}번<br>지갑 ${S.cash} (다음 레벨로 이어져요)`;
+      $('bRestart').textContent = `레벨 ${S.level + 1} 시작`;
+      $('over').classList.remove('hide');
+    }, 200);
+    setTimeout(() => queueCard('end', keep.type, showClear), 1200);
+  }
+
+  // 행동 뒤 : 적자가 한도를 넘으면 재정 위기, 모든 줄이 꽉 차면 자리 위기
+  async function settle() {
+    paintHUD();
+    if (S.over) return;
+    if (S.cash < -M.crisisAt) await fireSale();
+    else if (allFull()) await overflowSell();
+  }
+
+  // 회사 하나를 팖 (rate : 몸값 대비 받는 비율)
+  function sellTile(t, rate, label) {
+    const v = Math.round(value(t) * rate);
+    S.cash += v;
+    S.dumps++;
+    S.grid[t.r][t.c] = null;
+    if (!SIM) {
+      const [mx, my] = mid(t.c, t.r);
+      floatAt(mx, my, `+${v} ${label}`); t.el.remove(); shards(mx, my, t.stage, 12, t.type); sfx.sell(); paintHUD();
+    }
+  }
+
+  // 위기 : 잠시 멈추고, 고른 순서대로 회사가 하나씩 빛나며 팔려 나감 → 위 칸이 내려와 합병도 풀림 → 위기 카드 뒤 이어서
+  async function crisisFlow(title, pickNext, rate, label) {
+    S.crisis = true;
+    S.crises++;
+    if (!SIM) { shake(); buzz([120, 60, 120]); sfx.crisis(); banner(title, 'crisis'); await sleep(900); }
+    const moved = [];
+    for (let t = pickNext(); t; t = pickNext()) {
+      if (!SIM) { t.el.classList.add('firesale'); await sleep(450); }
+      sellTile(t, rate, label);
+      if (!SIM) await sleep(200);
+      moved.push(...await gravity());   // 위 칸이 내려와야 자리가 났는지 알 수 있음
+    }
+    await resolve(moved);
+    if (S.over) { S.crisis = false; return; }
+    if (SIM) { S.crisis = false; return; }
+    await sleep(400);
+    await new Promise(done => queueCard('crisis', S.types[rnd(S.types.length)], done));
+    S.crisis = false;
+    paintHUD();
+  }
+
+  // 자리 위기 : 가장 비싼 회사부터 반값에, 떨어뜨릴 줄이 생길 때까지
+  const overflowSell = () => crisisFlow('자리 위기! 핵심 회사를 반값에 팔아 자리를 만듭니다', () => {
+    if (!allFull()) return null;
+    return tiles().sort((a, b) => value(b) - value(a))[0] || null;
+  }, M.dumpRate, '넘침');
+
+  // 재정 위기 : 몸값 높은 회사부터 헐값에, 지갑이 0 이상이 될 때까지
+  const fireSale = () => crisisFlow('재정 위기! 핵심 자산을 헐값에 팝니다', () => {
+    if (S.cash >= 0) return null;
+    return tiles().sort((a, b) => value(b) - value(a))[0] || null;
+  }, M.fireSaleRate, '헐값');
+
+  const boardValue = () => tiles().reduce((v, t) => v + value(t), 0);
+  function paintHUD() {
+    if (SIM) return;
+    $('sLevel').textContent = S.level;
+    $('sTurn').textContent = S.turn;
+    rollCash(S.cash);
+    $('sCashBox').classList.toggle('red', S.cash < 0);
+    $('sBoard').textContent = boardValue();
+    $('debt').textContent = S.cash < 0 ? `적자 ${S.cash} / 재정 위기 -${M.crisisAt}` : '';
+  }
+  function floatAt(x, y, text, minus) {
+    const f = document.createElement('div');
+    f.className = 'float';
+    if (minus) f.style.color = '#FF8A80';
+    f.textContent = text;
+    f.style.left = x + 'px'; f.style.top = y + 'px';
+    boxEl.appendChild(f);
+    setTimeout(() => f.remove(), 1200);
+  }
+  let bannerT = 0;
+  function banner(text, style) {
+    if (SIM) return;
+    const b = $('banner');
+    b.textContent = text;
+    b.classList.toggle('ipo', style === true);
+    b.classList.toggle('crisis', style === 'crisis');
+    b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+    clearTimeout(bannerT);
+    bannerT = setTimeout(() => b.classList.remove('show'), 1900);
+  }
+
+  function newGame(sim) {
+    SIM = !!sim;
+    S.cash = M.startCash; S.level = 1; S.ipos = 0; S.firstIpo = 0; S.minCash = M.startCash;
+    S.seen = Object.fromEntries(M.types.map(t => [t.key, 0]));
+    startLevel();
+  }
+  function startLevel() {
+    if (SIM) H = M.rows; else layout(true);
+    S.grid = Array.from({ length: H }, () => Array(C).fill(null));
+    S.turn = 0; S.over = false; S.cleared = false; S.dumps = 0; S.crisis = false; S.crises = 0; S.busy = false; S.paused = false; S.chain = 0;
+    S.cur = null; S.next = null; S.col = Math.floor(C / 2);
+    S.stages = LV().ladder.map(key => ({ key, ...M.stageDefs[key] }));
+    S.top = S.stages.length - 1;
+    S.types = shuffle([...M.types]).sort((a, b) => S.seen[a.key] - S.seen[b.key]).slice(0, LV().types);
+    for (const t of S.types) S.seen[t.key]++;
+    if (!SIM) {
+      buildBoard();
+      $('bRestart').textContent = '다시 창업';
+      $('over').classList.add('hide');
+    }
+    spawn();
+    paintHUD();
+    if (!SIM) { if (menuOpen) pendingStart = true; else setTimeout(() => queueCard('start', S.types[rnd(S.types.length)]), 300); }
+  }
+
+  // ---------- 연출 ----------
+  function shards(x, y, stage, n, type) {
+    if (SIM) return;
+    const tn = type && toneOf(type, Math.min(stage, S.top - 1));
+    const rainbow = ['uni', 'ipo'].includes(S.stages[Math.min(stage, S.top)].key);
+    const colors = rainbow ? ['#FFB3E6', '#C9A2FF', '#7FD8FF', '#FFE27A', '#FFFFFF'] : [tn ? tn.c : '#fff', tn ? tn.c2 : '#ccc', tn ? tn.c3 : '#999', '#FFFFFF'];
+    // 링
+    const ring = document.createElement('div');
+    ring.className = 'burst';
+    ring.style.left = x + 'px'; ring.style.top = y + 'px';
+    ring.style.width = ring.style.height = CELL * 1.1 + 'px';
+    ring.style.setProperty('--bc', rainbow ? '#FFE27A' : colors[1]);
+    boxEl.appendChild(ring);
+    setTimeout(() => ring.remove(), 500);
+    // 조각
+    for (let i = 0; i < n; i++) {
+      const el = document.createElement('div');
+      el.className = 'shard' + (i % 3 === 0 ? ' tri' : '');
+      const ang = Math.random() * Math.PI * 2, dist = 35 + Math.random() * 70, sz = 8 + Math.random() * 8;
+      el.style.width = sz + 'px'; el.style.height = sz * (0.6 + Math.random() * 0.5) + 'px';
+      el.style.left = x + 'px'; el.style.top = y + 'px';
+      el.style.background = colors[i % colors.length];
+      el.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+      el.style.setProperty('--dy', Math.sin(ang) * dist * 0.8 - 30 + 'px');
+      el.style.setProperty('--rot', (Math.random() * 900 - 450) + 'deg');
+      boxEl.appendChild(el);
+      setTimeout(() => el.remove(), 900);
+    }
+  }
+  function chainText(x, y, n) {
+    const el = document.createElement('div');
+    el.className = 'chain';
+    el.textContent = typeof n === 'number' ? n + '연쇄!' : n;
+    el.style.fontSize = (typeof n === 'number' ? Math.min(44, 24 + n * 5) : 26) + 'px';
+    el.style.left = Math.max(60, Math.min(BW - 60, x)) + 'px';
+    el.style.top = Math.max(40, y) + 'px';
+    boxEl.appendChild(el);
+    setTimeout(() => el.remove(), 1050);
+  }
+  function dust(x, y) {
+    for (const dx of [-26, -12, 12, 26]) {
+      const d = document.createElement('div');
+      d.className = 'dust';
+      d.style.left = x + dx * 0.3 + 'px'; d.style.top = y + 'px';
+      d.style.setProperty('--dx', dx + 'px');
+      boxEl.appendChild(d);
+      setTimeout(() => d.remove(), 480);
+    }
+  }
+  function nudge() { boxEl.classList.remove('nudge'); void boxEl.offsetWidth; boxEl.classList.add('nudge'); }
+  function flashBox() { const f = $('boxFlash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); }
+  // 동전 : 판 위 (x, y)에서 지갑으로 날아감. 도착하면 지갑이 통통 튐
+  function coins(x, y, amount) {
+    if (SIM || amount <= 0) return;
+    const br = boxEl.getBoundingClientRect(), wr = $('sCashBox').getBoundingClientRect();
+    const n = Math.min(10, 2 + Math.floor(amount / 25));
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement('div');
+      c.className = 'coin';
+      c.style.left = br.left + x + (Math.random() - 0.5) * 30 + 'px';
+      c.style.top = br.top + y + (Math.random() - 0.5) * 20 + 'px';
+      document.body.appendChild(c);
+      setTimeout(() => {
+        c.style.left = wr.left + wr.width / 2 - 7 + 'px';
+        c.style.top = wr.top + wr.height / 2 - 7 + 'px';
+        c.style.opacity = '0';
+      }, 20 + i * 35);
+      setTimeout(() => {
+        c.remove();
+        const box = $('sCashBox'); box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump');
+        if (i % 3 === 0) sfx.coin();
+      }, 580 + i * 35);
+    }
+  }
+  // 지갑 숫자가 굴러가며 바뀜
+  let shownCash = null, rollT = 0;
+  function rollCash(to) {
+    if (shownCash === null) { shownCash = to; $('sCash').textContent = to; return; }
+    cancelAnimationFrame(rollT);
+    const from = shownCash, t0 = performance.now(), dur = 450;
+    const tick = now => {
+      const k = Math.min(1, (now - t0) / dur);
+      shownCash = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+      $('sCash').textContent = shownCash;
+      if (k < 1) rollT = requestAnimationFrame(tick);
+    };
+    rollT = requestAnimationFrame(tick);
+  }
+  // 꽃가루
+  function confetti(n) {
+    if (SIM) return;
+    const cols = ['#FFB3E6', '#C9A2FF', '#7FD8FF', '#FFE27A', '#8FE3C0', '#FF8FB0'];
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * BW + 'px';
+      c.style.background = cols[i % cols.length];
+      const dur = 1.2 + Math.random() * 1.2;
+      c.style.animationDuration = dur + 's';
+      c.style.animationDelay = Math.random() * 0.3 + 's';
+      c.style.setProperty('--dx', (Math.random() - 0.5) * 120 + 'px');
+      c.style.setProperty('--fall', boxEl.clientHeight + 30 + 'px');
+      c.style.setProperty('--rot', (Math.random() * 1080 - 540) + 'deg');
+      boxEl.appendChild(c);
+      setTimeout(() => c.remove(), (dur + 0.4) * 1000);
+    }
+  }
+  function shake() { boxEl.classList.remove('shake'); void boxEl.offsetWidth; boxEl.classList.add('shake'); }
+  const buzz = p => { if (!SIM && navigator.vibrate) navigator.vibrate(p); };
+
+  // ---------- 소리 : 파일 없이 브라우저에서 만듦 ----------
+  // 소리 켬·끔 (기억해 둠)
+  const sound = { on: (() => { try { return localStorage.getItem('rdc.sound') !== 'off'; } catch (e) { return true; } })() };
+  function paintSound() {
+    $('bSound').innerHTML = `sound <b class="${sound.on ? 'on' : 'off'}">${sound.on ? 'O' : 'X'}</b>`;
+    $('mSound').textContent = sound.on ? '소리 켬' : '소리 끔';
+  }
+  function toggleSound() {
+    sound.on = !sound.on;
+    try { localStorage.setItem('rdc.sound', sound.on ? 'on' : 'off'); } catch (e) {}
+    paintSound();
+    if (sound.on) { sfx.unlock(); sfx.card(); }
+  }
+  const sfx = (() => {
+    let ac = null;
+    const ctx = () => { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } } if (ac.state === 'suspended') ac.resume(); return ac; };
+    function tone(f, dur, type = 'sine', vol = 0.2, f2 = null, delay = 0) {
+      if (!sound.on || SIM) return;
+      const a = ctx(); if (!a) return;
+      const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+    }
+    const NOTE = [523, 587, 659, 784, 880, 1047, 1175];
+    // 소리 길 열기 : 아이폰은 무음 스위치가 켜져 있으면 웹 소리를 막음.
+    //   최신 사파리는 소리 종류를 '재생'으로, 예전 사파리는 들리지 않는 짧은 소리를 한 번 틀어 재생 모드로 바꿈.
+    let unlocked = false;
+    const SILENT = 'data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAGAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
+    function unlock() {
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+      const a = ctx();
+      if (!a || unlocked) return;
+      unlocked = true;
+      try { const b = a.createBuffer(1, 1, 22050), src = a.createBufferSource(); src.buffer = b; src.connect(a.destination); src.start(0); } catch (e) {}
+      try { const el = new Audio(SILENT); el.setAttribute('playsinline', ''); el.play().catch(() => {}); } catch (e) {}
+    }
+    return {
+      unlock,
+      drop: () => tone(900, 0.05, 'triangle', 0.12, 500),
+      land: () => { tone(150, 0.1, 'sine', 0.35, 70); tone(2400, 0.03, 'triangle', 0.05); },
+      coin: () => tone(1568, 0.07, 'square', 0.04, 2093),
+      merge: (stage, chain) => { const f = NOTE[stage] * (1 + 0.06 * (chain - 1)); tone(f * 0.5, 0.09, 'sine', 0.25, f); tone(f, 0.18, 'triangle', 0.14, null, 0.05); },
+      unicorn: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.25, 'triangle', 0.16, null, 0.08 * i)),
+      ipo: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i === 5 ? 0.6 : 0.18, 'square', 0.08, null, 0.12 * i)),
+      sell: () => tone(400, 0.15, 'sawtooth', 0.07, 200),
+      crisis: () => [392, 330, 262, 196].forEach((f, i) => tone(f, i === 3 ? 0.7 : 0.22, 'sawtooth', 0.09, null, 0.18 * i)),
+      card: () => tone(1320, 0.12, 'sine', 0.1, 1760)
+    };
+  })();
+
+  // ---------- 실제 회사 카드 (data/cards.json에 있는 것만) ----------
+  const DATA = { cards: [], companies: {} };
+  const ROBOT_GROUP = { arm: 'cobot', amr: 'service', legs: 'quadruped', hum: 'humanoid' };   // AMR은 서비스로봇 묶음
+  const EVENT_NAME = { found: '창업', grow: '성장', market: '시장', steal: '빼앗김', merge: '합병', sell: '매각', ipo: '상장', crash: '재정 위기', close: '사업 정리', regulate: '규제' };
+  // 게임 순간마다 쓰는 카드 묶음 : 175장이 다 나오게
+  const MOMENT = {
+    start: ['found', 'market', 'regulate'],              // 레벨 시작
+    sell: ['sell', 'merge', 'steal'],     // (예비) 매각
+    end: ['ipo', 'grow'],                 // 레벨 끝 : 상장
+    crisis: ['crash', 'close']            // 재정 위기
+  };
+  const GROUP = {
+    cobot: { name: '협동로봇', icon: 'robot-cobot' },
+    quadruped: { name: '4족보행', icon: 'robot-quad' },
+    humanoid: { name: '휴머노이드', icon: 'tile-hum' },
+    service: { name: '서비스로봇·AMR', icon: 'robot-amr' },
+    parts: { name: '부품·SW', icon: 'tile-tool' },
+    industrial: { name: '산업용 로봇', icon: 'tile-iarm' }
+  };
+  const used = new Set();
+  // 도감 : 받은 카드 id 목록을 휴대폰에 저장
+  const loadGot = () => { try { return new Set(JSON.parse(localStorage.getItem('rdc.cards') || '[]')); } catch (e) { return new Set(); } };
+  const saveGot = d => { try { localStorage.setItem('rdc.cards', JSON.stringify([...d])); } catch (e) {} };
+  const companyOf = card => DATA.companies[card.company] || {};
+  // 카드의 로봇 종류 : 제목·본문에 가장 먼저 나오는 로봇 이름으로. 없으면 회사 분류대로.
+  //   (예 : 4족 회사 유니트리의 휴머노이드 공연 카드는 휴머노이드)
+  const CARD_WORDS = { humanoid: ['휴머노이드'], quadruped: ['4족', '사족', '로봇개'], cobot: ['협동로봇'], service: ['청소로봇', '배송', '배달', '서빙', '물류', 'AMR'] };
+  function cardGroup(card) {
+    const text = (card.title || '') + ' ' + card.text;
+    let best = null, at = Infinity;
+    for (const [g, words] of Object.entries(CARD_WORDS)) for (const w of words) {
+      const i = text.indexOf(w);
+      if (i >= 0 && i < at) { at = i; best = g; }
+    }
+    return best || companyOf(card).type;
+  }
+  Promise.all([fetch('data/cards.json').then(r => r.json()), fetch('data/companies.json').then(r => r.json())])
+    .then(([cards, cos]) => { DATA.cards = cards; for (const c of cos) DATA.companies[c.id] = c; if (cardQueue.length) showCard(); })
+    .catch(() => { DATA.failed = true; while (cardQueue.length) { const q = cardQueue.shift(); if (q.after) q.after(); } });
+  // 같은 로봇 종류 회사 카드 중 아직 안 본 것 > 다른 종류 회사 카드 > 다 봤으면 처음부터
+  function pickCard(moment, type) {
+    const group = ROBOT_GROUP[type.key], kinds = MOMENT[moment];
+    const of = c => kinds.includes(c.type) && !used.has(c.id);
+    let pool = DATA.cards.filter(c => of(c) && cardGroup(c) === group);
+    if (!pool.length) pool = DATA.cards.filter(of);
+    if (!pool.length) { for (const c of DATA.cards) if (kinds.includes(c.type)) used.delete(c.id); pool = DATA.cards.filter(of); }
+    const card = pool[rnd(pool.length)];
+    if (card) used.add(card.id);
+    return card;
+  }
+  const cardQueue = [];
+  function queueCard(event, type, after) {
+    if (SIM || DATA.failed) { if (after) after(); return; }
+    cardQueue.push({ event, type, after });
+    if (cardQueue.length === 1 && DATA.cards.length) showCard();
+  }
+  function showCard() {
+    const q = cardQueue[0];
+    if (!q) return;
+    const card = pickCard(q.event, q.type);
+    if (!card) { cardQueue.shift(); if (q.after) q.after(); showCard(); return; }
+    const co = companyOf(card);
+    const got = loadGot(); const isNew = !got.has(card.id); got.add(card.id); saveGot(got);
+    fillCard(card);
+    const coGot = new Set([...got].map(id => (DATA.cards.find(c => c.id === id) || {}).company));
+    $('cDex').textContent = `${isNew ? '새 카드! ' : ''}도감 ${coGot.size}/${Object.keys(DATA.companies).length}개사 · ${got.size}/${DATA.cards.length}장`;
+    S.paused = true;
+    $('card').classList.remove('hide');
+    sfx.card();
+  }
+  function fillCard(card) {
+    const co = companyOf(card);
+    $('cEv').textContent = EVENT_NAME[card.type] || card.type;
+    $('cPic').src = `assets/${(GROUP[cardGroup(card)] || GROUP.service).icon}-a.png`;
+    $('cCo').textContent = co.name || '';
+    $('cEn').textContent = [co.en, co.country].filter(Boolean).join(' · ');
+    $('cTi').textContent = card.title || '';
+    $('cTx').textContent = card.text;
+    $('cYr').textContent = card.year;
+  }
+  $('card').addEventListener('click', () => {
+    if (dexCard) { dexCard = false; $('card').classList.add('hide'); return; }   // 도감에서 다시 보던 카드
+    const q = cardQueue.shift();
+    $('card').classList.add('hide');
+    S.paused = cardQueue.length > 0;
+    if (q && q.after) q.after();
+    showCard();
+  });
+
+  // ---------- 도감 : 40개사, 받은 카드 다시 보기 ----------
+  let dexCard = false;
+  function openDex() {
+    if (!DATA.cards.length) { banner('카드를 불러오는 중이에요'); return; }
+    S.paused = true;
+    const got = loadGot();
+    const cos = Object.values(DATA.companies);
+    const cardsOf = id => DATA.cards.filter(c => c.company === id);
+    const coGot = cos.filter(co => cardsOf(co.id).some(c => got.has(c.id))).length;
+    $('dexSum').textContent = `${coGot}/${cos.length}개사 · 카드 ${got.size}/${DATA.cards.length}장`;
+    $('dexList').innerHTML = Object.entries(GROUP).map(([g, info]) => {
+      // 주 분류 + 'also'(이 분야도 하는 회사)
+      const list = cos.filter(co => co.type === g || (co.also || []).includes(g));
+      return `<div class="grp"><div class="gh"><img src="assets/${info.icon}-a.png" alt="">${info.name}</div>` +
+        list.map(co => {
+          const all = cardsOf(co.id), n = all.filter(c => got.has(c.id)).length;
+          return `<button class="co ${n ? '' : 'locked'}" data-id="${co.id}">` +
+            `<b>${n ? co.name : '???'}</b><span>${n ? co.country : '아직 못 만났어요'}${co.type !== g && n ? ` · ${GROUP[co.type].name}에서도` : ''}</span><i>${n}/${all.length}</i></button>`;
+        }).join('') + '</div>';
+    }).join('');
+    $('dexDetail').classList.add('hide');
+    $('dex').classList.remove('hide');
+  }
+  function openCompany(id) {
+    const co = DATA.companies[id], got = loadGot();
+    const all = DATA.cards.filter(c => c.company === id);
+    if (!all.some(c => got.has(c.id))) { banner('카드를 받으면 열려요'); return; }
+    $('ddName').textContent = co.name;
+    $('ddEn').textContent = `${co.en} · ${co.country}`;
+    $('ddOne').textContent = co.oneLine;
+    $('ddCards').innerHTML = all.map(c => got.has(c.id)
+      ? `<button class="dc" data-card="${c.id}"><em>${EVENT_NAME[c.type] || c.type}</em><b>${c.title || ''}</b><span>${c.year}</span></button>`
+      : `<div class="dc locked"><em>?</em><b>아직 못 받은 카드</b><span></span></div>`).join('');
+    $('dexDetail').classList.remove('hide');
+  }
+  $('bDex').addEventListener('click', openDex);
+  $('dexClose').addEventListener('click', () => { $('dex').classList.add('hide'); S.paused = menuOpen; });
+  $('ddBack').addEventListener('click', () => $('dexDetail').classList.add('hide'));
+  $('dexList').addEventListener('click', e => { const b = e.target.closest('.co'); if (b) openCompany(b.dataset.id); });
+  $('ddCards').addEventListener('click', e => {
+    const b = e.target.closest('.dc[data-card]');
+    if (!b) return;
+    dexCard = true;
+    fillCard(DATA.cards.find(c => c.id === b.dataset.card));
+    $('cDex').textContent = '도감에서 다시 보기';
+    $('card').classList.remove('hide');
+  });
+
+  // 입력 : 손가락 좌우 → 줄 고르기, 떼면 떨어뜨림
+  let touch = null;
+  const colAt = clientX => Math.round((clientX - boxEl.getBoundingClientRect().left - GAP - CELL / 2) / SX);
+  boxEl.addEventListener('pointerdown', e => {
+    sfx.unlock();
+    if (S.over || S.paused || S.busy || S.crisis) return;
+    e.preventDefault();
+    touch = { id: e.pointerId };
+    boxEl.setPointerCapture(e.pointerId);
+    aim(colAt(e.clientX));
+  });
+  boxEl.addEventListener('pointermove', e => {
+    if (!touch || e.pointerId !== touch.id) return;
+    aim(colAt(e.clientX));
+  });
+  boxEl.addEventListener('pointerup', e => {
+    if (!touch || e.pointerId !== touch.id) return;
+    touch = null;
+    const c = colAt(e.clientX);
+    if (c >= 0 && c < C) dropAt(c);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') aim(S.col - 1);
+    else if (e.key === 'ArrowRight') aim(S.col + 1);
+    else if (e.key === 'ArrowDown' || e.key === ' ') dropAt(S.col);
+  });
+
+  $('bNew').addEventListener('click', () => { if ((S.turn === 0 && S.level === 1) || confirm('레벨 1부터 새로 시작할까요?')) newGame(); });
+  $('bRestart').addEventListener('click', () => {
+    if (S.cleared) { S.level++; startLevel(); }
+    else newGame();
+  });
+  window.addEventListener('resize', () => { if (!S.busy) buildBoard(); });
+
+  // 시험용 봇 : 줄마다 떨어뜨려 보고 같은 회사 옆이면 높은 점수. window.simulate(판 수, 최대 턴, 솜씨 0-1, 레벨)
+  window.simulate = async (games, maxTurns = 400, skill = 0.8, level = 1) => {
+    const out = [];
+    for (let g = 0; g < games; g++) {
+      newGame(true);
+      if (level > 1) { S.level = level; startLevel(); }
+      while (!S.over && S.turn < maxTurns) {
+        let best = -1, bs = -Infinity;
+        for (let c = 0; c < C; c++) {
+          if (colFull(c)) continue;
+          let r = H - 1; while (S.grid[r][c]) r--;
+          let sc = Math.random() * (1 - skill) * 12 - (H - r) * 0.2;
+          for (const [rr, cc] of NBR(r, c)) {
+            const o = rr >= 0 && rr < H && cc >= 0 && cc < C ? S.grid[rr][cc] : null;
+            if (!o) continue;
+            if (same(o, S.cur)) sc += 10 * skill;
+            else if (o.type === S.cur.type) sc += (o.stage === S.cur.stage + 1 ? 3 : 1) * skill;
+            else sc -= 1 * skill;
+          }
+          if (sc > bs) { bs = sc; best = c; }
+        }
+        if (best < 0) break;
+        await dropAt(best);
+      }
+      out.push({ firstIpo: S.firstIpo, dumps: S.dumps, turn: S.turn, minCash: S.minCash, crises: S.crises });
+    }
+    newGame();
+    return out;
+  };
+
+  // ---------- 시작 창 ----------
+  let menuOpen = true, pendingStart = false;
+  function closeMenu() {
+    sfx.unlock();
+    menuOpen = false;
+    $('menu').classList.add('hide');
+    $('tut').classList.add('hide');
+    S.paused = false;
+    if (pendingStart) { pendingStart = false; setTimeout(() => queueCard('start', S.types[rnd(S.types.length)]), 300); }
+  }
+  $('mStart').addEventListener('click', closeMenu);
+  $('mDex').addEventListener('click', () => { sfx.unlock(); openDex(); });
+  $('mSound').addEventListener('click', toggleSound);
+  $('bSound').addEventListener('click', toggleSound);
+  $('mTut').addEventListener('click', () => { sfx.unlock(); tutAt(0); $('tut').classList.remove('hide'); });
+
+  // ---------- 튜토리얼 : 그림이 들어간 일곱 장 ----------
+  // 미리보기 칸 : 로봇 종류 색조 × 단계 명도
+  function demo(typeKey, stageKey, size = 58, extra = '') {
+    const ty = M.types.find(t => t.key === typeKey), sh = M.shade[stageKey];
+    const vars = sh ? `--c:hsl(${ty.hue} ${sh[1] * ty.sat}% ${sh[0]}%);--c2:hsl(${ty.hue} ${Math.min(100, sh[1] * ty.sat + 10)}% ${Math.round(sh[0] * 0.72)}%);--c3:hsl(${ty.hue} ${Math.min(100, sh[1] * ty.sat + 12)}% ${Math.round(sh[0] * 0.45)}%);` : '';
+    return `<div class="ball st-${stageKey} ${extra}" style="${vars}width:${size}px;height:${size}px">${faceHTML(ty.tile, stageKey, size)}</div>`;
+  }
+  const TUT = [
+    { t: '떨어뜨리기', v: () => `<span>👆</span>${demo('arm', 'found')}<span class="big">↓</span>`,
+      p: '판 위에서 손가락을 좌우로 움직여 줄을 고르고, 떼면 그 줄 맨 아래까지 떨어져요. 위의 "다음"에서 다음에 올 회사를 미리 볼 수 있어요.' },
+    { t: '합병', v: () => `${demo('arm', 'found', 50)}+${demo('arm', 'found', 50)}<span class="big">→</span>${demo('arm', 'seed', 58)}`,
+      p: '같은 그림에 같은 숫자인 회사가 위아래나 옆으로 닿으면, 떨어뜨린 칸으로 합쳐져 숫자가 하나 올라가요. 양쪽에 둘이 닿으면 한꺼번에 두 단계! 작은 로봇일수록 낮은 단계, 큰 로봇일수록 높은 단계예요.' },
+    { t: '연쇄', v: () => `${demo('amr', 'seed', 50)}<span class="big">2연쇄!</span>${demo('amr', 'a', 58)}`,
+      p: '합쳐진 회사가 내려오거나 커지면서 또 같은 회사와 닿으면 연쇄가 터져요. 연쇄일수록 버는 돈이 몇 배로 늘어요.' },
+    { t: '유니콘과 상장', v: () => `${demo('hum', 'a', 46)}<span>→</span>${demo('hum', 'uni', 54)}<span>×2 → 상장</span>`,
+      p: '창업 → 시드투자 → 시리즈A → … → 유니콘으로 키워요. 유니콘 둘을 합치면 상장하고 레벨을 깨요. 레벨이 오르면 거쳐야 할 단계와 로봇 종류가 늘어요.' },
+    { t: '돈', v: () => `<span style="color:#F0426E">-10</span>${demo('legs', 'found', 54)}<span style="color:#1FA36B">+5</span>`,
+      p: '회사를 떨어뜨릴 때는 그 몸값만큼 돈이 나가고, 합병하면 돈이 들어와요. 적자여도 계속할 수 있지만 너무 커지면 위험해요.' },
+    { t: '위기', v: () => `${demo('legs', 'b', 58, 'firesale')}<span style="color:#C9443A">헐값!</span>`,
+      p: `적자가 ${M.crisisAt}을 넘으면 재정 위기, 판이 꽉 차면 자리 위기가 와요. 그러면 가장 비싼 회사부터 헐값에 팔려 나가요. 판을 넘치게 두지 마세요.` },
+    { t: '실제 회사 카드', v: () => `<div style="width:64px;height:84px;border-radius:10px;border:3px solid #1E3F8F;background:#FBFCFF;display:flex;align-items:center;justify-content:center;font-size:30px">📜</div>`,
+      p: '레벨을 시작하고 끝낼 때, 위기가 올 때 실제 로봇 회사의 이야기 카드를 받아요. 모은 카드는 아래 "도감"에서 다시 볼 수 있어요.' }
+  ];
+  let tutI = 0;
+  function tutAt(i) {
+    tutI = Math.max(0, Math.min(TUT.length - 1, i));
+    const sl = TUT[tutI];
+    $('tutN').textContent = `${tutI + 1} / ${TUT.length}`;
+    $('tutV').innerHTML = sl.v();
+    $('tutT').textContent = sl.t;
+    $('tutP').textContent = sl.p;
+    $('tPrev').style.visibility = tutI ? 'visible' : 'hidden';
+    $('tNext').textContent = tutI === TUT.length - 1 ? '시작하기' : '다음';
+    sfx.card();
+  }
+  $('tPrev').addEventListener('click', () => tutAt(tutI - 1));
+  $('tNext').addEventListener('click', () => { if (tutI === TUT.length - 1) closeMenu(); else tutAt(tutI + 1); });
+  $('tSkip').addEventListener('click', closeMenu);
+
+  paintSound();
+  newGame();
+  S.paused = true;
+})();
+</script>
+</body>
+</html>

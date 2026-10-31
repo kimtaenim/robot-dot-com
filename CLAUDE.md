@@ -52,6 +52,7 @@ index.html          본편 (떨어뜨리기 머지). 수치표는 파일 안 M �
 data/cards.json     카드 175장 {id, type, company, year, title, text}
 data/companies.json 도감용 40개사 {id, name, en, country, type, oneLine, also?} (also : 주 분류 말고도 하는 분야. 예 : 유니트리 4족보행 + 휴머노이드)
 assets/*.png        Robot Rush 그림 복사본 (robot-*, tile-*), assets/gray/ 회색판, assets/faces/ 얼굴
+hex-drop.html       본편의 헥사 칸 버전 (꼭짓점이 옆인 육각, 5줄, 이웃 6칸). 본편과 같은 규칙
 hex.html            옛 헥사 증식 시제품 (창업가 4명·땅따먹기). config.js 사용
 balls.html          공(물리) 시제품
 merge.html, merge-hex.html  밀기·끌어 놓기 합치기 시제품
