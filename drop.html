@@ -216,8 +216,8 @@
 <script>
 // 시제품 수치표 (확정되면 config.js로 옮김)
 const M = {
-  cols: 6,                 // 줄 수
-  rows: 8,                 // 높이
+  cols: 5,                 // 줄 수 (좁을수록 겹쳐 쌓여 어려움, ?c=)
+  rows: 7,                 // 높이 (?h=)
   // 레벨별 난이도 : 유니콘까지 거치는 단계(ladder), 로봇 종류 수(types), 새 회사가 창업·시드·시리즈A로 나올 비율(spawn).
   // 처음엔 시리즈A 다음 바로 유니콘, 나중엔 시리즈B·C까지. 마지막 값이 이후 레벨에 계속. ?t= 로 종류 수 고정
   levels: [
@@ -257,6 +257,8 @@ const M = {
 (() => {
   const qs = new URLSearchParams(location.search);
   if (qs.get('t')) M.levels.forEach(l => { l.types = +qs.get('t'); });
+  if (qs.get('c')) M.cols = +qs.get('c');   // 시험용 : 줄 수
+  if (qs.get('h')) M.rows = +qs.get('h');   // 시험용 : 높이
 
   const C = M.cols, H = M.rows;
   const $ = id => document.getElementById(id);
