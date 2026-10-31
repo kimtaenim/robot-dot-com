@@ -46,7 +46,9 @@
   "country": "중국",
   "type": "quadruped",
   "oneLine": "1만 위안 4족 로봇으로 출발해 2026년 커촹반 상장 첫날 629% 폭등",
-  "also": ["humanoid"]
+  "also": [
+   "humanoid"
+  ]
  },
  {
   "id": "07",
@@ -166,7 +168,10 @@
   "en": "Rainbow Robotics",
   "country": "한국",
   "type": "cobot",
-  "oneLine": "KAIST 휴보 연구진이 세운 회사, 2024년 삼성전자 연결 자회사로 편입"
+  "oneLine": "KAIST 휴보 연구진이 세운 회사, 2024년 삼성전자 연결 자회사로 편입",
+  "also": [
+   "quadruped"
+  ]
  },
  {
   "id": "22",
@@ -319,5 +324,29 @@
   "country": "한국",
   "type": "quadruped",
   "oneLine": "KAIST 휴보랩 출신이 세운 회사, 조선소 철벽을 타며 용접하는 사족보행 로봇"
+ },
+ {
+  "id": "41",
+  "name": "애니보틱스",
+  "en": "ANYbotics",
+  "country": "스위스",
+  "type": "quadruped",
+  "oneLine": "취리히 연방공대에서 나온 회사, 사족보행 자율 점검 로봇 애니멀"
+ },
+ {
+  "id": "42",
+  "name": "딥로보틱스",
+  "en": "DEEP Robotics",
+  "country": "중국",
+  "type": "quadruped",
+  "oneLine": "저장대 교수가 항저우에 세운 사족보행 로봇 회사, 2026년 커촹반 상장 추진"
+ },
+ {
+  "id": "43",
+  "name": "고스트로보틱스",
+  "en": "Ghost Robotics",
+  "country": "미국",
+  "type": "quadruped",
+  "oneLine": "필라델피아의 사족보행 로봇 회사, 2024년 LIG넥스원이 지분 60% 인수"
  }
 ]
