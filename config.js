@@ -10,21 +10,31 @@ window.CONFIG = {
 
   // 회사 유형 5종 (플레이어·경쟁사 공통)
   types: [
-    { key: 'arm',   name: '협동로봇',   tile: 'arm',   speed: 1.0, price: 10, grade: 1.0, resist: '보통' },
-    { key: 'legs',  name: '4족로봇',    tile: 'legs',  speed: 0.8, price: 12, grade: 1.3, resist: '높음' },
-    { key: 'hum',   name: '휴머노이드', tile: 'hum',   speed: 0.7, price: 6,  grade: 2.0, resist: '낮음' },
-    { key: 'wheel', name: '서비스로봇', tile: 'wheel', speed: 1.4, price: 8,  grade: 0.7, resist: '낮음' },
-    { key: 'tool',  name: '부품·SW',    tile: 'tool',  speed: 0.6, price: 14, grade: 1.6, resist: '높음' }
+    { key: 'arm',   name: '협동로봇',   tile: 'robot-cobot',    speed: 1.0, price: 10, grade: 1.0, resist: '보통' },
+    { key: 'legs',  name: '4족로봇',    tile: 'robot-quad',     speed: 0.8, price: 12, grade: 1.3, resist: '높음' },
+    { key: 'hum',   name: '휴머노이드', tile: 'tile-hum',       speed: 0.7, price: 6,  grade: 2.0, resist: '낮음' },
+    { key: 'wheel', name: '서비스로봇', tile: 'robot-delivery', speed: 1.4, price: 8,  grade: 0.7, resist: '낮음' },
+    { key: 'tool',  name: '부품·SW',    tile: 'tile-tool',      speed: 0.6, price: 14, grade: 1.6, resist: '높음' }
   ],
 
-  // 회사 5색 : 0번이 내 회사, 1-4번이 경쟁사
-  companyColors: ['#F28C28', '#4CC46A', '#A57BE8', '#4DB8F0', '#F2D23C'],
+  // 창업가 4명 : 0번이 나, 1-3번이 AI. 얼굴은 Robot Rush·Bosses of Our World 그림.
+  // 표정 : normal 평소, win 이득(인수·빼앗기), hurt 손해(빼앗김), lose 먹힘·폐업
+  founders: [
+    { name: '나',     color: '#F28C28', faces: { normal: 'me/neutral.png', win: 'me/delight.png', hurt: 'me/frown.png', lose: 'me/tear.png' } },
+    { name: '머스크', color: '#0099FF', faces: { normal: 'musk/glance.webp', win: 'musk/smirk.webp', hurt: 'musk/shock.webp', lose: 'musk/scream.webp' } },
+    { name: '베조스', color: '#FFD83D', faces: { normal: 'bezos/glance.webp', win: 'bezos/smirk.webp', hurt: 'bezos/shock.webp', lose: 'bezos/scream.webp' } },
+    { name: '알트만', color: '#9B6BFF', faces: { normal: 'altman/glance.webp', win: 'altman/smirk.webp', hurt: 'altman/shock.webp', lose: 'altman/scream.webp' } }
+  ],
 
-  // 경쟁사 (가상 회사. 실제 회사 이름 금지)
+  // AI 창업가 확장
   rivals: {
-    count: 4,
-    names: ['깡통상사', '삐빅테크', '볼트공방', '덜컹로보', '찌릿기계', '뚝딱메카', '나사네', '철컥산업'],
     growBase: 1       // 매 턴 뻗는 칸 수 (유형 속도 계수를 곱해 누적, 1 이상 쌓이면 1칸). 커져도 그대로
+  },
+
+  // 로봇 시장 : 칸마다 로봇 종류가 정해져 있고 회색 로고로 희미하게 표시. 이웃끼리 같은 종류가 뭉치게 seeds개 덩어리로 나눔.
+  segments: {
+    seeds: 9,
+    opacity: 0.22
   },
 
   // 접촉 판정
@@ -46,5 +56,5 @@ window.CONFIG = {
   },
 
   // 기존 세력 (산업용 팔)
-  legacy: { name: '대공장', tile: 'iarm' }
+  legacy: { name: '대공장', tile: 'tile-iarm' }
 };

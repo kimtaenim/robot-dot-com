@@ -38,8 +38,9 @@
   .stat i { font-style: normal; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #FFE27A; }
   .stat b { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 16px; }
   .chip { width: 10px; height: 10px; border-radius: 3px; display: inline-block; align-self: center; flex: none; }
-  #legend { display: flex; justify-content: center; gap: 8px; margin-top: 7px; font-size: 11.5px; white-space: nowrap; height: 16px; }
+  #legend { display: flex; justify-content: center; gap: 10px; margin-top: 7px; font-size: 12.5px; white-space: nowrap; height: 22px; }
   #legend span { display: inline-flex; align-items: center; gap: 3px; }
+  #legend img { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; border: 2px solid; flex: none; }
   #legend b { font-family: 'IBM Plex Mono', monospace; font-weight: 700; }
   #legend .dead { opacity: .35; text-decoration: line-through; }
   #legend .me { font-weight: 700; }
@@ -90,6 +91,9 @@
   @keyframes artA { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 0; } }
   @keyframes artB { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 1; } }
   @keyframes artBob { 0%, 100% { rotate: -14deg; translate: 0 0; } 25% { rotate: 0deg; translate: 0 -18%; } 50% { rotate: 14deg; translate: 0 0; } 75% { rotate: 0deg; translate: 0 -18%; } }
+  .seg { pointer-events: none; }
+  /* 본사 칸 : 창업가 얼굴 (동그랗게, 테두리는 창업가 색) */
+  .art.face img { border-radius: 50%; border: 3px solid var(--c); object-fit: cover; box-shadow: 0 2px 4px rgba(0,0,0,.35); }
   .art.gone { animation: gone .5s ease-in forwards; }
   @keyframes gone { to { transform: scale(0) rotate(90deg); opacity: 0; } }
 
@@ -367,7 +371,38 @@
   // Robot Rush와 같은 들썩이는 타일
   const artHTML = (tile, extra = '') =>
     `<span class="art bob swap ${extra}" style="--d:-${(Math.random() * 1.1).toFixed(2)}s">` +
-    `<img src="assets/tile-${tile}-a.png" alt=""><img class="b" src="assets/tile-${tile}-b.png" alt=""></span>`;
+    `<img src="assets/${tile}-a.png" alt=""><img class="b" src="assets/${tile}-b.png" alt=""></span>`;
+  const faceSrc = co => 'assets/faces/' + co.faces[co.mood || 'normal'];
+  const faceHTML = co =>
+    `<span class="art bob face" style="--c:${co.color};--d:-${(Math.random() * 1.1).toFixed(2)}s"><img src="${faceSrc(co)}" alt="${co.name}"></span>`;
+
+  // 표정 : 잠깐 바뀌었다가 평소 얼굴로
+  function setMood(co, mood) {
+    co.mood = mood;
+    clearTimeout(co.moodT);
+    if (mood !== 'lose') co.moodT = setTimeout(() => { co.mood = 'normal'; refreshFaces(); }, 1800);
+    refreshFaces();
+  }
+  function refreshFaces() {
+    for (const co of S.co) {
+      const el = hqEls[co.id];
+      if (el) el.querySelector('img').src = faceSrc(co);
+    }
+    paintHUD();
+  }
+
+  // 로봇 시장 : 칸마다 로봇 종류. seeds개 씨앗에서 가장 가까운 씨앗의 종류를 따라 덩어리지게.
+  function makeSegments() {
+    const seeds = shuffle([...Array(N).keys()]).slice(0, C.segments.seeds);
+    const kinds = seeds.map((_, k) => C.types[k % C.types.length]);
+    shuffle(kinds);
+    S.seg = [];
+    for (let i = 0; i < N; i++) {
+      let best = 0;
+      for (let k = 1; k < seeds.length; k++) if (hexDist(i, seeds[k]) < hexDist(i, seeds[best])) best = k;
+      S.seg.push(kinds[best]);
+    }
+  }
 
   // 판 그리기
   let hexEls = [], warnEls = [];
@@ -385,6 +420,24 @@
       p.dataset.i = i;
       board.appendChild(p);
       hexEls.push(p);
+    }
+    // 칸마다 그 시장의 로봇 로고를 회색으로 희미하게
+    const defs = document.createElementNS(SVGNS, 'defs');
+    defs.innerHTML = '<filter id="gray"><feColorMatrix type="saturate" values="0"/></filter>';
+    board.appendChild(defs);
+    const lg = W * 0.62;
+    for (let i = 0; i < N; i++) {
+      const [x, y] = center(i);
+      const im = document.createElementNS(SVGNS, 'image');
+      im.setAttribute('class', 'seg');
+      im.setAttribute('href', `assets/${S.seg[i].tile}-a.png`);
+      im.setAttribute('x', x - lg / 2);
+      im.setAttribute('y', y - lg / 2);
+      im.setAttribute('width', lg);
+      im.setAttribute('height', lg);
+      im.setAttribute('filter', 'url(#gray)');
+      im.setAttribute('opacity', C.segments.opacity);
+      board.appendChild(im);
     }
     warnEls = [];
     for (let i = 0; i < N; i++) {
@@ -445,14 +498,13 @@
 
   function paintHQ() {
     const layer = $('hqLayer');
-    const sz = W * 0.9;
+    const sz = W * 0.86;
     for (const co of S.co) {
       let el = hqEls[co.id];
       const live = co.alive && S.owner[co.hq] === co.id;
       if (live && !el) {
-        layer.insertAdjacentHTML('beforeend', artHTML(co.type.tile));
+        layer.insertAdjacentHTML('beforeend', faceHTML(co));
         el = hqEls[co.id] = layer.lastElementChild;
-        el.dataset.tile = co.type.tile;
       }
       if (!el) continue;
       if (!live) {
@@ -482,7 +534,7 @@
     $('bGuardCost').textContent = th.size ? '흡수 위험 -' + guardCost() : $('bGuardCost').textContent;
     $('legend').innerHTML = S.co.map(co =>
       `<span class="${co.alive ? '' : 'dead'} ${co.id === ME ? 'me' : ''} ${th.has(co.id) ? 'threat' : ''}">` +
-      `<i class="chip" style="background:${co.color}"></i>${co.name} <b>${co.alive ? sizeOf(co.id) : 0}</b></span>`
+      `<img src="${faceSrc(co)}" style="border-color:${co.color}" alt="">${co.name} <b>${co.alive ? sizeOf(co.id) : 0}</b></span>`
     ).join('');
   }
 
@@ -535,7 +587,9 @@
     S.owner[i] = by.id;
     fx.touch.add(i);
     fx.stolen.push([by, from, i]);
-    if (sizeOf(from.id) === 0) { from.alive = false; fx.closed.push(from); }
+    setMood(by, 'win');
+    setMood(from, 'hurt');
+    if (sizeOf(from.id) === 0) { from.alive = false; fx.closed.push(from); setMood(from, 'lose'); }
   }
 
   function rivalsGrow(pop) {
@@ -609,6 +663,8 @@
     big.cash += small.cash;
     small.cash = 0;
     fx.absorbed.push([big, small]);
+    setMood(big, 'win');
+    setMood(small, 'lose');
   }
 
   // 한 턴 : ① 내 행동(호출 전에 끝남) ② 경쟁사 뺏기·확장 ③ 접촉 판정 ④ 매출 정산
@@ -765,15 +821,15 @@
     }
     const seed = pick(cand);
     S.owner[seed] = ME;
-    S.co = [{ id: ME, name: '나', type, color: C.companyColors[0], hq: seed, alive: true, acc: 0, cash: C.economy.startCash }];
+    const mk = (k, t, hq) => ({ id: k, ...C.founders[k], type: t, hq, alive: true, acc: 0, cash: C.economy.startCash, mood: 'normal' });
+    S.co = [mk(ME, type, seed)];
 
-    const names = shuffle([...C.rivals.names]);
     const seeds = [seed];
-    for (let k = 1; k <= C.rivals.count; k++) {
+    for (let k = 1; k < C.founders.length; k++) {
       const s = seedFar(seeds);
       seeds.push(s);
       S.owner[s] = k;
-      S.co.push({ id: k, name: names[k - 1], type: pick(C.types), color: C.companyColors[k], hq: s, alive: true, acc: 0, cash: C.economy.startCash });
+      S.co.push(mk(k, pick(C.types), s));
     }
     $('pick').classList.add('hide');
     paint({ pop: new Set(seeds) });
@@ -783,6 +839,7 @@
     S.owner.fill(EMPTY);
     S.co = []; S.turn = 0; S.touching = new Set(); S.over = false; S.sel = -1; S.guard = false; S.guardStreak = 0;
     $('stealSheet').classList.add('hide');
+    makeSegments();
     buildBoard();
     $('over').classList.add('hide');
     $('pick').classList.remove('hide');
@@ -803,11 +860,12 @@
   }
 
   // 내 회사 색
-  const meColor = C.companyColors[0];
+  const meColor = C.founders[0].color;
   document.documentElement.style.setProperty('--me', meColor);
   $('sChip').style.background = meColor;
 
   buildPick();
+  makeSegments();
   buildBoard();
   window.addEventListener('resize', () => { buildBoard(); });
 })();
