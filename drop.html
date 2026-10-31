@@ -260,7 +260,8 @@ const M = {
   if (qs.get('c')) M.cols = +qs.get('c');   // 시험용 : 줄 수
   if (qs.get('h')) M.rows = +qs.get('h');   // 시험용 : 높이
 
-  const C = M.cols, H = M.rows;
+  const C = M.cols;
+  let H = M.rows;   // 높이 : 화면에 들어가는 만큼 (최대 M.rows, 최소 5)
   const $ = id => document.getElementById(id);
   const rnd = n => Math.floor(Math.random() * n);
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -273,10 +274,14 @@ const M = {
 
   // 판 크기 : 화면 폭을 꽉 채움
   let CELL = 56, GAP = 5, BW = 360;
-  function layout() {
-    const w = Math.min(window.innerWidth, 400) - 16;
+  // 판 크기 : 가로를 화면 폭에 꽉 맞추고, 그 칸 크기로 세로에 들어가는 줄 수를 정함 (fitRows 일 때만 줄 수를 바꿈)
+  function layout(fitRows) {
+    const w = Math.min(window.innerWidth, 480) - 12;
     const h = $('main').clientHeight - 54;
-    CELL = Math.floor(Math.min((w - GAP * (C + 1)) / C, (h - GAP * (H + 3)) / (H + 1)));
+    CELL = Math.floor((w - GAP * (C + 1)) / C);
+    if (fitRows) H = Math.max(5, Math.min(M.rows, Math.floor((h - GAP * 3) / (CELL + GAP)) - 1));
+    // 아주 짧은 화면에서는 최소 5줄이 들어가게 칸을 줄임
+    CELL = Math.floor(Math.min(CELL, (h - GAP * (H + 3)) / (H + 1)));
     BW = C * CELL + GAP * (C + 1);
     boxEl.style.width = BW + 'px';
     boxEl.style.height = (H + 1) * CELL + GAP * (H + 3) + 'px';
@@ -599,6 +604,7 @@ const M = {
     startLevel();
   }
   function startLevel() {
+    if (SIM) H = M.rows; else layout(true);
     S.grid = Array.from({ length: H }, () => Array(C).fill(null));
     S.turn = 0; S.over = false; S.cleared = false; S.dumps = 0; S.crisis = false; S.crises = 0; S.busy = false; S.paused = false; S.chain = 0;
     S.cur = null; S.next = null; S.col = Math.floor(C / 2);
