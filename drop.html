@@ -470,45 +470,46 @@ const M = {
   }
 
   // 닿은 같은 회사끼리 합병 → 빈자리로 위 회사들이 내려옴 → 또 합병 (연쇄, 수입이 연쇄 횟수만큼 배로)
+  // 합병 : 움직인 회사(t)가 닿은 같은 회사를 전부 한꺼번에 흡수하고 제자리에 남음.
+  //   하나와 닿으면 한 단계, 둘이면 두 단계, 셋이면 세 단계 위로. 위 칸이 내려와 또 닿으면 연쇄(수입 배수).
   async function resolve(active) {
     while (active.length) {
       const t = active.shift();
       if (!t || !S.grid[t.r] || S.grid[t.r][t.c] !== t) continue;
-      const nb = [[t.r + 1, t.c], [t.r, t.c - 1], [t.r, t.c + 1], [t.r - 1, t.c]]
-        .filter(([r, c]) => r >= 0 && r < H && c >= 0 && c < C).map(([r, c]) => S.grid[r][c]).find(o => same(t, o));
-      if (!nb) continue;
-      // 아래쪽(같은 줄이면 이미 있던) 자리에 결과가 남음
-      const [keep, gone] = nb.r >= t.r ? [nb, t] : [t, nb];
-      S.grid[gone.r][gone.c] = null;
-      const stage = keep.stage + 1;
+      const gone = [[t.r + 1, t.c], [t.r, t.c - 1], [t.r, t.c + 1], [t.r - 1, t.c]]
+        .filter(([r, c]) => r >= 0 && r < H && c >= 0 && c < C).map(([r, c]) => S.grid[r][c]).filter(o => same(t, o));
+      if (!gone.length) continue;
+      for (const g of gone) S.grid[g.r][g.c] = null;
+      const stage = Math.min(S.top, t.stage + gone.length);
+      if (!SIM) for (const g of gone) { g.el.style.translate = t.el.style.translate; g.el.classList.add('gone'); setTimeout(() => g.el.remove(), 150); }
       if (stage === S.top) {
-        S.grid[keep.r][keep.c] = null;
-        await ipo(keep, gone);
+        S.grid[t.r][t.c] = null;
+        if (!SIM) await sleep(110);
+        await ipo(t, t);
         return;
       }
       S.chain++;
-      const gain = (valueOf(stage, keep.type) - 2 * value(keep)) * S.chain;
-      keep.stage = stage;
+      const gain = (valueOf(stage, t.type) - (gone.length + 1) * value(t)) * S.chain;
+      t.stage = stage;
       S.cash += gain;
       if (!SIM) {
-        gone.el.style.translate = keep.el.style.translate;
-        gone.el.classList.add('gone');
-        setTimeout(() => gone.el.remove(), 150);
         await sleep(110);
-        restyle(keep);
-        keep.el.classList.remove('pop'); void keep.el.offsetWidth; keep.el.classList.add('pop');
-        const [mx, my] = mid(keep.c, keep.r);
+        restyle(t);
+        t.el.classList.remove('pop'); void t.el.offsetWidth; t.el.classList.add('pop');
+        const [mx, my] = mid(t.c, t.r);
         floatAt(mx, my - CELL * 0.3, '+' + gain + (stage >= S.top - 1 ? ' ' + S.stages[stage].name + '!' : ''));
-        shards(mx, my, stage - 1, 8 + stage * 3, keep.type);
-        sfx.merge(stage, S.chain);
-        if (S.chain >= 2) { chainText(mx, my - CELL * 0.6, S.chain); shake(); buzz([25, 30, 25 + S.chain * 10]); }
+        shards(mx, my, stage - 1, 8 + stage * 3 + gone.length * 6, t.type);
+        sfx.merge(stage, S.chain + gone.length - 1);
+        if (gone.length >= 2) chainText(mx, my - CELL * 0.9, `${gone.length + 1}개 동시 합병!`);
+        if (S.chain >= 2) { chainText(mx, my - CELL * 0.4, S.chain); shake(); buzz([25, 30, 25 + S.chain * 10]); }
+        else if (gone.length >= 2) { shake(); buzz([30, 30, 60]); }
         else buzz(stage >= S.top - 1 ? [40, 40, 80] : 18);
         if (stage === S.top - 1) sfx.unicorn();
         paintHUD();
         await sleep(130);
       }
       const moved = await gravity();
-      active.unshift(keep, ...moved);
+      active.unshift(t, ...moved);
     }
   }
 
@@ -535,9 +536,8 @@ const M = {
     if (!S.firstIpo) S.firstIpo = S.turn;
     S.over = true; S.cleared = true;
     if (SIM) return;
-    gone.el.style.translate = keep.el.style.translate;
-    gone.el.classList.add('gone'); keep.el.classList.add('gone');
-    setTimeout(() => { gone.el.remove(); keep.el.remove(); }, 200);
+    keep.el.classList.add('gone');
+    setTimeout(() => keep.el.remove(), 200);
     const [mx, my] = mid(keep.c, keep.r);
     floatAt(mx, my, '+' + v);
     banner(`${keep.type.name} 상장! +${v}`, true);
@@ -685,8 +685,8 @@ const M = {
   function chainText(x, y, n) {
     const el = document.createElement('div');
     el.className = 'chain';
-    el.textContent = n + '연쇄!';
-    el.style.fontSize = Math.min(44, 24 + n * 5) + 'px';
+    el.textContent = typeof n === 'number' ? n + '연쇄!' : n;
+    el.style.fontSize = (typeof n === 'number' ? Math.min(44, 24 + n * 5) : 26) + 'px';
     el.style.left = Math.max(60, Math.min(BW - 60, x)) + 'px';
     el.style.top = Math.max(40, y) + 'px';
     boxEl.appendChild(el);
@@ -946,7 +946,7 @@ const M = {
     { t: '떨어뜨리기', v: () => `<span>👆</span>${demo('arm', 'found')}<span class="big">↓</span>`,
       p: '판 위에서 손가락을 좌우로 움직여 줄을 고르고, 떼면 그 줄 맨 아래까지 떨어져요. 위의 "다음"에서 다음에 올 회사를 미리 볼 수 있어요.' },
     { t: '합병', v: () => `${demo('arm', 'found', 50)}+${demo('arm', 'found', 50)}<span class="big">→</span>${demo('arm', 'seed', 58)}`,
-      p: '같은 로봇, 같은 단계 회사가 위아래나 옆으로 닿으면 한 단계 위로 합쳐져요. 같은 색 계열이면 같은 로봇이고, 진할수록 높은 단계예요.' },
+      p: '같은 로봇, 같은 단계 회사가 위아래나 옆으로 닿으면 떨어뜨린 칸으로 합쳐져 한 단계 올라가요. 양쪽에 둘이 닿으면 한꺼번에 두 단계! 같은 색 계열이면 같은 로봇이고, 진할수록 높은 단계예요.' },
     { t: '연쇄', v: () => `${demo('amr', 'seed', 50)}<span class="big">2연쇄!</span>${demo('amr', 'a', 58)}`,
       p: '합쳐진 회사가 내려오거나 커지면서 또 같은 회사와 닿으면 연쇄가 터져요. 연쇄일수록 버는 돈이 몇 배로 늘어요.' },
     { t: '유니콘과 상장', v: () => `${demo('hum', 'a', 46)}<span>→</span>${demo('hum', 'uni', 54)}<span>×2 → 상장</span>`,
