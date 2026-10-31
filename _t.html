@@ -276,6 +276,19 @@
   #banner.crisis { background: linear-gradient(135deg, #8E2A24, #C9443A); }
   #debt { position: absolute; right: 8px; top: 4px; font-size: 11px; color: #FF8A80; font-family: 'Sunflower', sans-serif; font-weight: 700; pointer-events: none; z-index: 4; }
 
+  /* 상장 종 : 거래소 개장 종처럼 땡땡땡 (그림은 SVG로 직접) */
+  #bell { position: fixed; z-index: 22; width: 132px; height: 146px; pointer-events: none; transform: translate(-50%, -50%) scale(.2); opacity: 0; }
+  #bell.on { animation: bellIn 1.9s ease-out forwards; }
+  #bell .bb { transform-origin: 50% 6%; }
+  #bell.on .bb { animation: bellSwing .36s ease-in-out 4 alternate; }
+  #bell .cl { transform-origin: 50% 70%; }
+  #bell.on .cl { animation: bellClap .36s ease-in-out 4 alternate; }
+  #bell .wv { opacity: 0; }
+  #bell.on .wv { animation: bellWave .36s ease-out 4; }
+  @keyframes bellIn { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.2); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); } 20% { transform: translate(-50%, -50%) scale(1); } 82% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -62%) scale(.85); } }
+  @keyframes bellSwing { from { transform: rotate(-24deg); } to { transform: rotate(24deg); } }
+  @keyframes bellClap { from { transform: translateX(9px); } to { transform: translateX(-9px); } }
+  @keyframes bellWave { 0% { opacity: 0; transform: scale(.8); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.25); } }
   .float { position: absolute; z-index: 6; pointer-events: none; transform: translate(-50%, -50%); font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 18px; color: #FFE27A; text-shadow: 0 1px 0 #2A2F35, 0 0 4px #2A2F35; animation: floatUp 1.1s ease-out forwards; white-space: nowrap; }
   @keyframes floatUp { to { transform: translate(-50%, -60px); opacity: 0; } }
   #banner { position: fixed; left: 50%; top: 40%; z-index: 20; pointer-events: none; background: rgba(30, 36, 42, .9); border-radius: 12px; padding: 12px 18px; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 18px; text-align: center; opacity: 0; transform: translate(-50%, -50%) scale(.5); white-space: nowrap; }
@@ -309,6 +322,24 @@
   <div id="box"><div id="dropRow"></div><div id="debt"></div><div id="boxFlash"></div></div>
 </div>
 
+<div id="bell"><svg viewBox="0 0 120 132" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bellG" x1="0" x2="1"><stop offset="0" stop-color="#C98A12"/><stop offset=".32" stop-color="#FFE38A"/><stop offset=".6" stop-color="#F2B632"/><stop offset="1" stop-color="#A86A08"/></linearGradient>
+    <linearGradient id="bellR" x1="0" x2="1"><stop offset="0" stop-color="#B9770E"/><stop offset=".35" stop-color="#FFE9A0"/><stop offset="1" stop-color="#9A5F06"/></linearGradient>
+  </defs>
+  <g class="wv" style="transform-origin:60px 60px" fill="none" stroke="#FFE27A" stroke-width="5" stroke-linecap="round">
+    <path d="M14 40 Q4 60 14 80"/><path d="M4 30 Q-8 60 4 90"/><path d="M106 40 Q116 60 106 80"/><path d="M116 30 Q128 60 116 90"/>
+  </g>
+  <g class="bb">
+    <g class="cl"><line x1="60" y1="96" x2="60" y2="112" stroke="#6B4300" stroke-width="4"/><circle cx="60" cy="116" r="9" fill="url(#bellR)" stroke="#6B4300" stroke-width="3.5"/></g>
+    <circle cx="60" cy="11" r="7.5" fill="none" stroke="#6B4300" stroke-width="5"/>
+    <circle cx="60" cy="11" r="7.5" fill="none" stroke="#F2B632" stroke-width="2.5"/>
+    <path d="M60 18 C38 18 33 36 32 58 C31 78 26 90 16 98 L104 98 C94 90 89 78 88 58 C87 36 82 18 60 18 Z" fill="url(#bellG)" stroke="#6B4300" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M44 30 C39 42 39 62 37 80" fill="none" stroke="#FFF6D0" stroke-width="5" stroke-linecap="round" opacity=".75"/>
+    <path d="M35 74 L85 74" stroke="#B9770E" stroke-width="3" opacity=".7"/>
+    <rect x="10" y="95" width="100" height="12" rx="6" fill="url(#bellR)" stroke="#6B4300" stroke-width="4"/>
+  </g>
+</svg></div>
 <div id="actions"><button id="bDex">도감</button></div>
 <div id="menu"><div class="menuBox">
   <div class="mt">★ROBOT-DOT-COM★</div>
@@ -355,7 +386,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.10.31-15';
+const BUILD_V = '2026.10.31-16';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -682,6 +713,16 @@ const M = {
     return moved;
   }
 
+  // 상장 종 : 합쳐진 자리 위(판 안쪽으로)에서 흔들리며 땡땡땡
+  function ringBell(x, y) {
+    const el = $('bell'), r = boxEl.getBoundingClientRect();
+    const bx = r.left + Math.min(Math.max(x, 80), r.width - 80), by = r.top + Math.min(Math.max(y - 30, 90), r.height - 90);
+    el.style.left = bx + 'px'; el.style.top = by + 'px';
+    el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+    sfx.bell();
+    setTimeout(() => sfx.ipo(), 1500);
+  }
+  window.ringBell = ringBell;
   async function ipo(keep, gone) {
     const v = valueOf(S.top, keep.type) * M.ipoMul;
     S.cash += v;
@@ -698,7 +739,7 @@ const M = {
     shards(mx, my, S.top - 1, 40);
     shake(); flashBox(); confetti(90); coins(mx, my, v);
     buzz([60, 40, 60, 40, 120]);
-    sfx.ipo();
+    ringBell(mx, my);
     paintHUD();
     const showClear = () => setTimeout(() => {
       $('overTitle').textContent = `레벨 ${S.level} 클리어!`;
@@ -707,7 +748,7 @@ const M = {
       $('bRestart').textContent = `레벨 ${S.level + 1} 시작`;
       $('over').classList.remove('hide');
     }, 200);
-    setTimeout(() => queueCard('end', keep.type, showClear), 1200);
+    setTimeout(() => queueCard('end', keep.type, showClear), 2000);
   }
 
   // 행동 뒤 : 적자가 한도를 넘으면 재정 위기, 모든 줄이 꽉 차면 경영 위기. 끝나면 판 저장.
@@ -1072,7 +1113,9 @@ const M = {
       ipo: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i === 5 ? 0.6 : 0.18, 'square', 0.08, null, 0.12 * i)),
       sell: () => tone(400, 0.15, 'sawtooth', 0.07, 200),
       crisis: () => [392, 330, 262, 196].forEach((f, i) => tone(f, i === 3 ? 0.7 : 0.22, 'sawtooth', 0.09, null, 0.18 * i)),
-      card: () => tone(1320, 0.12, 'sine', 0.1, 1760)
+      card: () => tone(1320, 0.12, 'sine', 0.1, 1760),
+      // 종 : 맑은 배음(1, 2, 2.76, 5.4배)이 길게 울리는 땡, 네 번
+      bell: () => { for (let k = 0; k < 4; k++) [[1, .22, 1.6], [2, .1, 1.1], [2.76, .08, .8], [5.4, .04, .4]].forEach(([m, v, d]) => tone(880 * m, d, 'sine', v, null, 0.36 * k)); }
     };
   })();
 
@@ -1320,7 +1363,6 @@ const M = {
     const vars2 = vars + (le.bev ? `--bev:${le.bev};--rim:${le.rim};` : '') + (ty.hue != null ? `--tx:${textOf(ty)};` : '');
     return `<div class="ball st-${stageKey} ${extra}" style="${vars2}width:${size}px;height:${size}px">${faceHTML(ty.tile, stageKey, size)}</div>`;
   }
-  window.demo = demo;
   const TUT = [
     { t: '떨어뜨리기', v: () => `<span>👆</span>${demo('arm', 'found')}<span class="big">↓</span>`,
       p: '판 위에서 손가락을 좌우로 움직여 줄을 고르고, 떼면 그 줄 맨 아래까지 떨어져요.' },
