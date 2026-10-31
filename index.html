@@ -130,7 +130,9 @@
 
   #box { flex: none; position: relative; background: #3E4852; border-radius: 14px; box-shadow: 0 0 0 4px #2E363E, 0 10px 24px rgba(0,0,0,.35); overflow: hidden; }
   /* 육각 칸 (꼭짓점이 옆) */
-  .slot, .ball, .ball .face { clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+  .slot, .ball .face, .ball .rb { clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+  /* 평면 타일 : 윗면 육각 + 아래로 얇은 옆면(두께 8%) */
+  .ball { clip-path: polygon(25% 0, 75% 0, 100% 46%, 100% 54%, 75% 100%, 25% 100%, 0 54%, 0 46%); }
   .slot { position: absolute; background: #4A5662; }
   .col { position: absolute; border-radius: 12px; background: rgba(255,255,255,.07); pointer-events: none; display: none; }
   /* 헥사판에서는 고르는 줄 띠를 보이지 않음 */
@@ -166,14 +168,17 @@
   .ball .stg { position: absolute; z-index: 3; left: 50%; bottom: 6%; transform: translateX(-50%); box-shadow: 0 1px 2px rgba(0,0,0,.25); font-family: 'Sunflower', sans-serif; font-weight: 700; color: #1C3577; background: rgba(255,255,255,.9); border-radius: 5px; padding: 0 4px; line-height: 1.3; white-space: nowrap; }
   .ball.held { opacity: .95; transition: translate .08s ease-out; z-index: 5; }
   /* 사각 칸 뱃지 : 공과 같은 광택·테두리, 모서리만 둥근 사각 */
-  /* 육각 뱃지 : 바깥 = 테두리색, 안쪽 육각 = 빛 받는 볼록면 */
+  /* 평면 타일 : 바깥(옆면) = 진한 색, 윗면 = 거의 단색 (위쪽만 살짝 밝게) */
   .ball { border-radius: 0; border: none; transition: translate .13s ease-in; background: var(--rim, var(--c3)); box-shadow: none; }
-  .ball .face { inset: 4.5%; background: radial-gradient(circle at 36% 30%, rgba(255,255,255,.85) 0%, var(--c) 26%, var(--c2) 100%); }
+  .ball .face { inset: 0 0 auto 0; height: 92%; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 82%, #fff) 0%, var(--c) 38%, var(--c) 100%); }
   .ball .face::before { display: none; }
+  .ball::after { display: none; }
+  .st-uni { background: #C8962A; }
   .st-uni .face { background: none; }
-  .ball::after { left: 22%; top: 9%; width: 42%; height: 22%; }
-  /* 숫자는 테두리(바깥 6%) 안쪽에 : 윗변을 가리지 않게 */
-  .ball .num { left: 50%; top: 12%; width: 20%; height: 23%; transform: translateX(-50%); }
+  .ball .rb { inset: 0 0 auto 0 !important; height: 92%; }
+  .ball .rb::after { display: none; }
+  .ball .num { left: 50%; top: 9%; width: 20%; height: 24%; transform: translateX(-50%); }
+  .ball .stg { bottom: 12%; }
   .ball.gone { opacity: 0; transition: translate .12s, opacity .12s; }
   .ball.pop { animation: pop .25s ease-out; }
   .ball.pick { animation: pickGlow .55s ease-in-out infinite alternate; }
@@ -186,7 +191,7 @@
   .st-a     { --c: #FF8FB0; --c2: #F0426E; --c3: #A8183F; --ink: #FFFFFF; }
   .st-b     { --c: #B79CFF; --c2: #7B4DF0; --c3: #4A1FA8; --ink: #FFFFFF; }
   .st-c     { --c: #7FE0F0; --c2: #1FA8C8; --c3: #0B6A85; --ink: #FFFFFF; }
-  .st-uni   { --c3: #C8962A; --ink: #FFFFFF; background: #fff; border-color: #E8B94A; }
+  .st-uni   { --c3: #C8962A; --ink: #FFFFFF; background: #C8962A; border-color: #E8B94A; }
   /* 유니콘 : 빨강에서 보라까지 무지개 띠가 흐르고, 별이 반짝임 */
   .ball .rb { position: absolute; inset: 0; border-radius: inherit; z-index: 0; pointer-events: none;
     /* 빨-주-노-초-파-남-보 다음 다시 보라→빨강으로 이어지는 반복 띠(한 바퀴 70px, 대각선).
@@ -335,7 +340,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.10.31-6';
+const BUILD_V = '2026.10.31-7';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
