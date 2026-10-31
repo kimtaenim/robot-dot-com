@@ -214,26 +214,26 @@
 // 시제품 수치표 (확정되면 config.js로 옮김)
 const M = {
   levelTypes: [2],         // 레벨별 로봇 종류 수 (마지막 값이 이후 레벨에 계속). 3종은 헷갈려서 당분간 2종. ?t= 로 고정
-  // 레벨별 난이도 : size 공 크기 배율, seed 새 공이 시드로 나올 확률, crisis 재정 위기 한도(적자).
+  // 레벨별 난이도 : seed 새 공이 시드로 나올 확률, crisis 재정 위기 한도(적자). 공 크기는 늘 같음.
   // 첫 레벨은 쉽고 갈수록 어려움 (마지막 값이 이후 계속)
   levels: [
-    { size: 0.8,  seed: 0.5,  crisis: 700 },
-    { size: 0.87, seed: 0.45, crisis: 600 },
-    { size: 0.93, seed: 0.42, crisis: 500 },
-    { size: 1.0,  seed: 0.4,  crisis: 400 },
-    { size: 1.06, seed: 0.37, crisis: 300 },
-    { size: 1.12, seed: 0.35, crisis: 250 }
+    { seed: 0.5,  crisis: 700 },
+    { seed: 0.45, crisis: 600 },
+    { seed: 0.42, crisis: 500 },
+    { seed: 0.4,  crisis: 400 },
+    { seed: 0.37, crisis: 300 },
+    { seed: 0.35, crisis: 250 }
   ],
   startCash: 100,
   // 단계 : 같은 로봇·같은 단계 공 둘이 부딪히면 한 단계 위(더 큰 공). 유니콘 둘이 합쳐지면 상장(레벨 클리어).
   // r 은 판 폭에 대한 공 반지름 비율
   stages: [
-    { name: '창업',    value: 10,   r: 0.069 },
-    { name: '시드',    value: 25,   r: 0.087 },
-    { name: '시리즈A', value: 60,   r: 0.109 },
-    { name: '시리즈B', value: 150,  r: 0.138 },
-    { name: '유니콘',  value: 400,  r: 0.172 },   // 지름이 창업의 2.5배
-    { name: '상장',    value: 1000, r: 0.2 }
+    { name: '창업',    value: 10,   r: 0.059 },
+    { name: '시드',    value: 25,   r: 0.074 },
+    { name: '시리즈A', value: 60,   r: 0.093 },
+    { name: '시리즈B', value: 150,  r: 0.117 },
+    { name: '유니콘',  value: 400,  r: 0.146 },   // 지름이 창업의 2.5배
+    { name: '상장',    value: 1000, r: 0.17 }
   ],
   ipoMul: 5,               // 상장 대금 = 상장 단계 몸값 × 이 배수
   dumpRate: 0.5,           // 손해 매각 = 몸값의 이 비율
@@ -274,7 +274,7 @@ const M = {
     paintLine();
   }
   const LV = () => M.levels[Math.min(S.level - 1, M.levels.length - 1)];
-  const radius = stage => M.stages[stage].r * BW * LV().size;
+  const radius = stage => M.stages[stage].r * BW;
   const valueOf = (stage, type) => Math.round(M.stages[stage].value * type.grade);
   const value = b => valueOf(b.stage, b.type);
   const dumpValue = b => Math.round(value(b) * M.dumpRate);
@@ -563,7 +563,6 @@ const M = {
       S.types = shuffle([...M.types]).sort((a, b) => S.seen[a.key] - S.seen[b.key]).slice(0, k);
       for (const t of S.types) S.seen[t.key]++;
     }
-    LINE = 8 + radius(1) * 2 + 10;   // 공 크기가 레벨마다 달라서 다시 계산
     if (!SIM) {
       layout();
       S.aimX = BW / 2;
