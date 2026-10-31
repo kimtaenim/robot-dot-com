@@ -29,9 +29,6 @@
   .mute b.on { background: #2E9E4F; }
   .mute b.off { background: #C62828; }
   /* ---------- 손맛 ---------- */
-  /* 떨어질 자리 미리보기 */
-  .ghost { position: absolute; z-index: 1; border-radius: 24%; border: 3px dashed var(--c3, #fff); background: var(--c, rgba(255,255,255,.2)); opacity: .35; pointer-events: none; transition: translate .08s ease-out; }
-  .ghost.hide { display: none; }
   /* 착지 : 눌렸다 튀어 오름 */
   .ball.land { transform-origin: 50% 100%; animation: land .32s ease-out; }
   @keyframes land { 0% { scale: 1.25 .7; } 40% { scale: .9 1.12; } 70% { scale: 1.04 .97; } 100% { scale: 1 1; } }
@@ -158,9 +155,7 @@
   /* 단계 숫자 : 같은 그림 + 같은 숫자 = 합쳐짐 */
   .ball .num { position: absolute; z-index: 4; left: 5%; top: 5%; width: 30%; height: 30%; border-radius: 50%; background: #fff; color: var(--c3, #8A6A10); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 700; line-height: 1; box-shadow: 0 1px 2px rgba(0,0,0,.35); }
   .st-uni .num { background: #FFE27A; color: #8A5A00; }
-  /* 들고 있는 회사와 합쳐질 수 있는 회사 */
-  .ball.mate { animation: mate .6s ease-in-out infinite alternate; }
-  @keyframes mate { from { filter: brightness(1); box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 0 0 0 rgba(255,255,255,0); } to { filter: brightness(1.18); box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 0 0 4px rgba(255,255,255,.75); } }
+
   .ball .stg { position: absolute; z-index: 3; left: 50%; bottom: 6%; transform: translateX(-50%); box-shadow: 0 1px 2px rgba(0,0,0,.25); font-family: 'Sunflower', sans-serif; font-weight: 700; color: #1C3577; background: rgba(255,255,255,.9); border-radius: 5px; padding: 0 4px; line-height: 1.3; white-space: nowrap; }
   .ball.held { opacity: .95; transition: translate .08s ease-out; z-index: 5; }
   /* 사각 칸 뱃지 : 공과 같은 광택·테두리, 모서리만 둥근 사각 */
@@ -455,7 +450,7 @@ const M = {
   }
   const place = t => { const [x, y] = px(t.c, t.r); t.el.style.translate = `${x}px ${y}px`; };
 
-  let colEls = [], ghostEl = null;
+  let colEls = [];
   function buildBoard() {
     layout();
     for (const el of boxEl.querySelectorAll('.slot, .col, .ball')) el.remove();
@@ -476,10 +471,6 @@ const M = {
       }
     }
     for (const t of tiles()) { tileEl(t); place(t); }
-    ghostEl = document.createElement('div');
-    ghostEl.className = 'ghost hide';
-    ghostEl.style.width = ghostEl.style.height = CELL + 'px';
-    boxEl.appendChild(ghostEl);
     if (S.cur) { tileEl(S.cur).classList.add('held'); aim(S.col); }
   }
 
@@ -489,21 +480,6 @@ const M = {
     if (SIM) return;
     if (S.cur && S.cur.el) { const [x, y] = px(S.col, -1); S.cur.el.style.translate = `${x}px ${y}px`; }
     colEls.forEach((ce, i) => { ce.classList.toggle('on', i === S.col && !S.busy); ce.classList.toggle('full', i === S.col && colFull(i)); });
-    // 합쳐질 수 있는 회사 깜빡임
-    for (const o of tiles()) if (o.el) o.el.classList.toggle('mate', !!(S.cur && !S.busy && same(o, S.cur)));
-    // 떨어질 자리에 반투명 그림자
-    if (ghostEl) {
-      const show = S.cur && !S.busy && !colFull(S.col);
-      ghostEl.classList.toggle('hide', !show);
-      if (show) {
-        let r = H - 1; while (S.grid[r][S.col]) r--;
-        const [x, y] = px(S.col, r);
-        ghostEl.style.translate = `${x}px ${y}px`;
-        const tn = toneOf(S.cur.type, S.cur.stage);
-        ghostEl.style.setProperty('--c', tn ? tn.c : '#FFE27A');
-        ghostEl.style.setProperty('--c3', tn ? tn.c3 : '#C8962A');
-      }
-    }
   }
 
   function spawn() {
@@ -1149,7 +1125,7 @@ const M = {
     { t: '떨어뜨리기', v: () => `<span>👆</span>${demo('arm', 'found')}<span class="big">↓</span>`,
       p: '판 위에서 손가락을 좌우로 움직여 줄을 고르고, 떼면 그 줄 맨 아래까지 떨어져요. 위의 "다음"에서 다음에 올 회사를 미리 볼 수 있어요.' },
     { t: '합병', v: () => `${demo('arm', 'found', 50)}+${demo('arm', 'found', 50)}<span class="big">→</span>${demo('arm', 'seed', 58)}`,
-      p: '같은 그림에 같은 숫자인 회사가 위아래나 옆으로 닿으면, 떨어뜨린 칸으로 합쳐져 숫자가 하나 올라가요. 양쪽에 둘이 닿으면 한꺼번에 두 단계! 들고 있는 회사와 합쳐질 수 있는 회사는 판에서 반짝여요.' },
+      p: '같은 그림에 같은 숫자인 회사가 위아래나 옆으로 닿으면, 떨어뜨린 칸으로 합쳐져 숫자가 하나 올라가요. 양쪽에 둘이 닿으면 한꺼번에 두 단계! 작은 로봇일수록 낮은 단계, 큰 로봇일수록 높은 단계예요.' },
     { t: '연쇄', v: () => `${demo('amr', 'seed', 50)}<span class="big">2연쇄!</span>${demo('amr', 'a', 58)}`,
       p: '합쳐진 회사가 내려오거나 커지면서 또 같은 회사와 닿으면 연쇄가 터져요. 연쇄일수록 버는 돈이 몇 배로 늘어요.' },
     { t: '유니콘과 상장', v: () => `${demo('hum', 'a', 46)}<span>→</span>${demo('hum', 'uni', 54)}<span>×2 → 상장</span>`,
