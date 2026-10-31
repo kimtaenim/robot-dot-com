@@ -54,6 +54,34 @@
   .cardBox .yr { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 18px; margin-top: 10px; color: #1E3F8F; }
   .cardBox .foot { display: flex; justify-content: space-between; font-size: 11px; opacity: .6; margin-top: 8px; }
 
+  /* 도감 : Delft 블루 */
+  #dex, #dexDetail { position: fixed; inset: 0; z-index: 24; background: #F3F6FC; color: #10275F; display: flex; flex-direction: column; padding: calc(10px + env(safe-area-inset-top)) 12px calc(10px + env(safe-area-inset-bottom)); }
+  #dex.hide, #dexDetail.hide { display: none; }
+  .dexHead { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 3px double #6F94D6; }
+  .dexHead .dt { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 20px; }
+  .dexHead .ds { font-size: 12px; opacity: .7; }
+  .dexHead button { height: 36px; padding: 0 14px; border: 2px solid #1E3F8F; border-radius: 18px; background: #fff; color: #1E3F8F; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 14px; }
+  #dexList, #ddCards { flex: 1; overflow-y: auto; padding-top: 6px; touch-action: pan-y; }
+  .grp .gh { display: flex; align-items: center; gap: 6px; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; margin: 10px 0 6px; color: #1E3F8F; }
+  .grp .gh img { width: 26px; height: 26px; filter: grayscale(1) sepia(1) saturate(5) hue-rotate(175deg) brightness(.55) contrast(1.6); }
+  .grp { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .grp .gh { grid-column: 1 / -1; }
+  .grp .co { position: relative; text-align: left; background: #fff; border: 2px solid #1E3F8F; border-radius: 10px; padding: 6px 8px; color: #10275F; font: inherit; }
+  .grp .co b { display: block; font-family: 'Sunflower', sans-serif; font-size: 14px; }
+  .grp .co span { font-size: 11px; opacity: .65; }
+  .grp .co i { position: absolute; right: 6px; top: 6px; font-style: normal; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #1E3F8F; }
+  .grp .co.locked { background: #E3E9F4; border-style: dashed; color: #7A8AAE; }
+  .ddTop { padding: 10px 2px; }
+  .ddTop .dn { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 24px; }
+  .ddTop .de { font-size: 12px; opacity: .65; }
+  .ddTop .do { font-size: 14px; margin-top: 6px; line-height: 1.5; word-break: keep-all; }
+  .dc { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: #fff; border: 2px solid #1E3F8F; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; color: #10275F; font: inherit; }
+  .dc em { font-style: normal; background: #1E3F8F; color: #fff; border-radius: 999px; padding: 1px 8px; font-family: 'Sunflower', sans-serif; font-size: 12px; flex: none; }
+  .dc b { flex: 1; font-family: 'Sunflower', sans-serif; font-size: 14px; }
+  .dc span { font-family: 'IBM Plex Mono', monospace; font-size: 12px; opacity: .7; }
+  .dc.locked { background: #E3E9F4; border-style: dashed; color: #7A8AAE; }
+  .dc.locked em { background: #9AA8C6; }
+
   #box { flex: none; position: relative; background: #3E4852; border-radius: 14px; box-shadow: 0 0 0 4px #2E363E, 0 10px 24px rgba(0,0,0,.35); overflow: hidden; }
   #line { position: absolute; left: 0; right: 0; border-top: 2px dashed rgba(255, 138, 128, .55); pointer-events: none; }
   #line.warn { border-top-color: #FF5A4E; animation: urgent .3s ease-in-out infinite alternate; }
@@ -162,8 +190,17 @@
   <div id="hint">좌우로 겨누고 떼면 떨어져요. 같은 공끼리 닿으면 더 큰 공이 돼요.</div>
 </div>
 
-<div id="actions"><button id="bSell">매각</button><button id="bNew">새 판</button></div>
+<div id="actions"><button id="bSell">매각</button><button id="bDex">도감</button><button id="bNew">새 판</button></div>
 <div id="banner"></div>
+<div id="dex" class="hide">
+  <div class="dexHead"><div><div class="dt">로봇 회사 도감</div><div class="ds" id="dexSum"></div></div><button id="dexClose">닫기</button></div>
+  <div id="dexList"></div>
+  <div id="dexDetail" class="hide">
+    <div class="dexHead"><button id="ddBack">‹ 목록</button></div>
+    <div class="ddTop"><div class="dn" id="ddName"></div><div class="de" id="ddEn"></div><div class="do" id="ddOne"></div></div>
+    <div id="ddCards"></div>
+  </div>
+</div>
 <div id="card" class="hide"><div class="cardBox">
   <div class="ev" id="cEv"></div>
   <div class="pic"><img id="cPic" alt=""></div>
@@ -383,7 +420,7 @@ const M = {
       paintHUD();
       // 그 레벨에서 그 로봇이 처음 시리즈B·유니콘이 되면 실제 회사 성장 카드
       const mk = a.type.key + stage;
-      if (stage >= 3 && !S.milestones.has(mk)) { S.milestones.add(mk); queueCard('grow', a.type); }
+      if (stage >= 3 && !S.milestones.has(mk)) S.milestones.add(mk);
     }
   }
 
@@ -401,7 +438,7 @@ const M = {
     sfx.ipo();
     paintHUD();
     stopSell();
-    setTimeout(() => queueCard('ipo', a.type, showClear), 1200);
+    setTimeout(() => queueCard('end', a.type, showClear), 1200);
     const showClear = () => setTimeout(() => {
       $('overTitle').textContent = `레벨 ${S.level} 클리어!`;
       $('overScore').textContent = '+' + v;
@@ -463,12 +500,10 @@ const M = {
     S.cash += v;
     S.dumps++;
     S.balls = S.balls.filter(o => o !== b);
-    const wasForced = S.selling === 'forced';
     if (!SIM) {
       floatAt(b.x, b.y, '+' + v); b.el.remove(); shards(b.x, b.y, b.stage, 10); sfx.sell();
       // 넘쳐서 판 첫 번째는 위기 카드, 시리즈A 이상을 팔면 매각 카드
-      if (wasForced && !S.crashCard) { S.crashCard = true; queueCard('crash', b.type); }
-      else if (b.stage >= 2) queueCard('sell', b.type);
+      queueCard('sell', b.type);
     }
     stopSell();
     settle();
@@ -532,7 +567,7 @@ const M = {
     }
     spawn();
     paintHUD();
-    if (!SIM) setTimeout(() => queueCard('found', S.types[rnd(S.types.length)]), 300);
+    if (!SIM) setTimeout(() => queueCard('start', S.types[rnd(S.types.length)]), 300);
   }
 
   // ---------- 연출 ----------
@@ -593,19 +628,36 @@ const M = {
   // ---------- 실제 회사 카드 (data/cards.json에 있는 것만) ----------
   const DATA = { cards: [], companies: {} };
   const ROBOT_GROUP = { arm: 'cobot', amr: 'service', legs: 'quadruped', hum: 'humanoid' };   // AMR은 서비스로봇 묶음
-  const EVENT_NAME = { found: '창업', grow: '성장', sell: '매각', crash: '위기', ipo: '상장', merge: '합병' };
+  const EVENT_NAME = { found: '창업', grow: '성장', market: '시장', steal: '빼앗김', merge: '합병', sell: '매각', ipo: '상장', crash: '위기', close: '폐업', regulate: '규제' };
+  // 게임 순간마다 쓰는 카드 묶음 : 175장이 다 나오게
+  const MOMENT = {
+    start: ['found', 'market', 'regulate'],              // 레벨 시작
+    sell: ['sell', 'merge', 'steal', 'crash', 'close'],  // 매각
+    end: ['ipo', 'grow']                                 // 레벨 끝 (상장)
+  };
+  const GROUP = {
+    cobot: { name: '협동로봇', icon: 'robot-cobot' },
+    quadruped: { name: '4족보행', icon: 'robot-quad' },
+    humanoid: { name: '휴머노이드', icon: 'tile-hum' },
+    service: { name: '서비스로봇·AMR', icon: 'robot-amr' },
+    parts: { name: '부품·SW', icon: 'tile-tool' },
+    industrial: { name: '산업용 로봇', icon: 'tile-iarm' }
+  };
   const used = new Set();
-  const loadDex = () => { try { return new Set(JSON.parse(localStorage.getItem('rdc.dex') || '[]')); } catch (e) { return new Set(); } };
-  const saveDex = d => { try { localStorage.setItem('rdc.dex', JSON.stringify([...d])); } catch (e) {} };
+  // 도감 : 받은 카드 id 목록을 휴대폰에 저장
+  const loadGot = () => { try { return new Set(JSON.parse(localStorage.getItem('rdc.cards') || '[]')); } catch (e) { return new Set(); } };
+  const saveGot = d => { try { localStorage.setItem('rdc.cards', JSON.stringify([...d])); } catch (e) {} };
+  const companyOf = card => DATA.companies[card.company] || {};
   Promise.all([fetch('data/cards.json').then(r => r.json()), fetch('data/companies.json').then(r => r.json())])
     .then(([cards, cos]) => { DATA.cards = cards; for (const c of cos) DATA.companies[c.id] = c; if (cardQueue.length) showCard(); })
     .catch(() => { DATA.failed = true; while (cardQueue.length) { const q = cardQueue.shift(); if (q.after) q.after(); } });
-  function pickCard(event, type) {
-    const group = ROBOT_GROUP[type.key];
-    const of = c => c.type === event && !used.has(c.id);
-    let pool = DATA.cards.filter(c => of(c) && DATA.companies[c.company] && DATA.companies[c.company].type === group);
-    if (!pool.length) pool = DATA.cards.filter(of);   // 모자라면 같은 사건의 다른 카드
-    if (!pool.length) { for (const c of DATA.cards) if (c.type === event) used.delete(c.id); pool = DATA.cards.filter(of); }
+  // 같은 로봇 종류 회사 카드 중 아직 안 본 것 > 다른 종류 회사 카드 > 다 봤으면 처음부터
+  function pickCard(moment, type) {
+    const group = ROBOT_GROUP[type.key], kinds = MOMENT[moment];
+    const of = c => kinds.includes(c.type) && !used.has(c.id);
+    let pool = DATA.cards.filter(c => of(c) && companyOf(c).type === group);
+    if (!pool.length) pool = DATA.cards.filter(of);
+    if (!pool.length) { for (const c of DATA.cards) if (kinds.includes(c.type)) used.delete(c.id); pool = DATA.cards.filter(of); }
     const card = pool[rnd(pool.length)];
     if (card) used.add(card.id);
     return card;
@@ -621,26 +673,79 @@ const M = {
     if (!q) return;
     const card = pickCard(q.event, q.type);
     if (!card) { cardQueue.shift(); if (q.after) q.after(); showCard(); return; }
-    const co = DATA.companies[card.company] || {};
-    const dex = loadDex(); dex.add(co.id); saveDex(dex);
+    const co = companyOf(card);
+    const got = loadGot(); const isNew = !got.has(card.id); got.add(card.id); saveGot(got);
+    fillCard(card);
+    const coGot = new Set([...got].map(id => (DATA.cards.find(c => c.id === id) || {}).company));
+    $('cDex').textContent = `${isNew ? '새 카드! ' : ''}도감 ${coGot.size}/${Object.keys(DATA.companies).length}개사 · ${got.size}/${DATA.cards.length}장`;
+    S.paused = true;
+    $('card').classList.remove('hide');
+    sfx.card();
+  }
+  function fillCard(card) {
+    const co = companyOf(card);
     $('cEv').textContent = EVENT_NAME[card.type] || card.type;
-    $('cPic').src = `assets/${q.type.tile}-a.png`;
+    $('cPic').src = `assets/${(GROUP[co.type] || GROUP.service).icon}-a.png`;
     $('cCo').textContent = co.name || '';
     $('cEn').textContent = [co.en, co.country].filter(Boolean).join(' · ');
     $('cTi').textContent = card.title || '';
     $('cTx').textContent = card.text;
     $('cYr').textContent = card.year;
-    $('cDex').textContent = `도감 ${dex.size}/${Object.keys(DATA.companies).length}개사`;
-    S.paused = true;
-    $('card').classList.remove('hide');
-    sfx.card();
   }
   $('card').addEventListener('click', () => {
+    if (dexCard) { dexCard = false; $('card').classList.add('hide'); return; }   // 도감에서 다시 보던 카드
     const q = cardQueue.shift();
     $('card').classList.add('hide');
     S.paused = cardQueue.length > 0;
     if (q && q.after) q.after();
     showCard();
+  });
+
+  // ---------- 도감 : 40개사, 받은 카드 다시 보기 ----------
+  let dexCard = false;
+  function openDex() {
+    if (!DATA.cards.length) { banner('카드를 불러오는 중이에요'); return; }
+    S.paused = true;
+    const got = loadGot();
+    const cos = Object.values(DATA.companies);
+    const cardsOf = id => DATA.cards.filter(c => c.company === id);
+    const coGot = cos.filter(co => cardsOf(co.id).some(c => got.has(c.id))).length;
+    $('dexSum').textContent = `${coGot}/${cos.length}개사 · 카드 ${got.size}/${DATA.cards.length}장`;
+    $('dexList').innerHTML = Object.entries(GROUP).map(([g, info]) => {
+      const list = cos.filter(co => co.type === g);
+      return `<div class="grp"><div class="gh"><img src="assets/${info.icon}-a.png" alt="">${info.name}</div>` +
+        list.map(co => {
+          const all = cardsOf(co.id), n = all.filter(c => got.has(c.id)).length;
+          return `<button class="co ${n ? '' : 'locked'}" data-id="${co.id}">` +
+            `<b>${n ? co.name : '???'}</b><span>${n ? co.country : '아직 못 만났어요'}</span><i>${n}/${all.length}</i></button>`;
+        }).join('') + '</div>';
+    }).join('');
+    $('dexDetail').classList.add('hide');
+    $('dex').classList.remove('hide');
+  }
+  function openCompany(id) {
+    const co = DATA.companies[id], got = loadGot();
+    const all = DATA.cards.filter(c => c.company === id);
+    if (!all.some(c => got.has(c.id))) { banner('카드를 받으면 열려요'); return; }
+    $('ddName').textContent = co.name;
+    $('ddEn').textContent = `${co.en} · ${co.country}`;
+    $('ddOne').textContent = co.oneLine;
+    $('ddCards').innerHTML = all.map(c => got.has(c.id)
+      ? `<button class="dc" data-card="${c.id}"><em>${EVENT_NAME[c.type] || c.type}</em><b>${c.title || ''}</b><span>${c.year}</span></button>`
+      : `<div class="dc locked"><em>?</em><b>아직 못 받은 카드</b><span></span></div>`).join('');
+    $('dexDetail').classList.remove('hide');
+  }
+  $('bDex').addEventListener('click', openDex);
+  $('dexClose').addEventListener('click', () => { $('dex').classList.add('hide'); S.paused = false; });
+  $('ddBack').addEventListener('click', () => $('dexDetail').classList.add('hide'));
+  $('dexList').addEventListener('click', e => { const b = e.target.closest('.co'); if (b) openCompany(b.dataset.id); });
+  $('ddCards').addEventListener('click', e => {
+    const b = e.target.closest('.dc[data-card]');
+    if (!b) return;
+    dexCard = true;
+    fillCard(DATA.cards.find(c => c.id === b.dataset.card));
+    $('cDex').textContent = '도감에서 다시 보기';
+    $('card').classList.remove('hide');
   });
 
   // 화면 갱신
