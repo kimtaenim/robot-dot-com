@@ -125,7 +125,9 @@
   .dc.locked em { background: #9AA8C6; }
 
   #box { flex: none; position: relative; background: #3E4852; border-radius: 14px; box-shadow: 0 0 0 4px #2E363E, 0 10px 24px rgba(0,0,0,.35); overflow: hidden; }
-  .slot { position: absolute; background: #4A5662; border-radius: 22%; }
+  /* 육각 칸 (꼭짓점이 옆) */
+  .slot, .ball, .ball .face { clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+  .slot { position: absolute; background: #4A5662; }
   .col { position: absolute; border-radius: 12px; background: rgba(255,255,255,.07); pointer-events: none; display: none; }
   .col.on { display: block; }
   .col.full { background: rgba(255, 90, 78, .16); }
@@ -159,9 +161,13 @@
   .ball .stg { position: absolute; z-index: 3; left: 50%; bottom: 6%; transform: translateX(-50%); box-shadow: 0 1px 2px rgba(0,0,0,.25); font-family: 'Sunflower', sans-serif; font-weight: 700; color: #1C3577; background: rgba(255,255,255,.9); border-radius: 5px; padding: 0 4px; line-height: 1.3; white-space: nowrap; }
   .ball.held { opacity: .95; transition: translate .08s ease-out; z-index: 5; }
   /* 사각 칸 뱃지 : 공과 같은 광택·테두리, 모서리만 둥근 사각 */
-  .ball { border-radius: 24%; transition: translate .13s ease-in; }
-  .ball .face { border-radius: 24%; }
-  .ball .face::before { border-radius: 20%; }
+  /* 육각 뱃지 : 바깥 = 테두리색, 안쪽 육각 = 빛 받는 볼록면 */
+  .ball { border-radius: 0; border: none; transition: translate .13s ease-in; background: var(--c3); box-shadow: none; }
+  .ball .face { inset: 6%; background: radial-gradient(circle at 36% 30%, rgba(255,255,255,.85) 0%, var(--c) 26%, var(--c2) 100%); }
+  .ball .face::before { display: none; }
+  .st-uni .face { background: none; }
+  .ball::after { left: 22%; top: 9%; width: 42%; height: 22%; }
+  .ball .num { left: 50%; top: 5%; width: 24%; height: 26%; transform: translateX(-50%); }
   .ball.gone { opacity: 0; transition: translate .12s, opacity .12s; }
   .ball.pop { animation: pop .25s ease-out; }
   .ball.pick { animation: pickGlow .55s ease-in-out infinite alternate; }
@@ -323,8 +329,8 @@
 <script>
 // 시제품 수치표 (확정되면 config.js로 옮김)
 const M = {
-  cols: 5,                 // 줄 수 (좁을수록 겹쳐 쌓여 어려움, ?c=)
-  rows: 7,                 // 높이 (?h=)
+  cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
+  rows: 6,                 // 높이 (?h=)
   // 레벨별 난이도 : 유니콘까지 거치는 단계(ladder), 로봇 종류 수(types), 새 회사가 창업·시드투자·시리즈A로 나올 비율(spawn).
   // 처음엔 시리즈A 다음 바로 유니콘, 나중엔 시리즈B·C까지. 마지막 값이 이후 레벨에 계속. ?t= 로 종류 수 고정
   levels: [
@@ -382,25 +388,33 @@ const M = {
   // 판 크기 : 화면 폭을 꽉 채움
   let CELL = 56, GAP = 5, BW = 360;
   // 판 크기 : 가로를 화면 폭에 꽉 맞추고, 그 칸 크기로 세로에 들어가는 줄 수를 정함 (fitRows 일 때만 줄 수를 바꿈)
+  // 육각 판 : 칸 폭 CELL(=육각 가로), 높이 HH. 줄 간격 SX = 0.75칸, 칸 간격 SY = 높이. 홀수 줄은 SY/2 아래.
+  let HH = 48, SX = 42, SY = 50;
+  const HG = 3;   // 육각 사이 틈
+  function geom() { HH = Math.round(CELL * 0.866); SX = CELL * 0.75 + HG; SY = HH + HG; }
   function layout(fitRows) {
     const w = Math.min(window.innerWidth, 480) - 12;
     const h = $('main').clientHeight - 6;
-    const full = Math.floor((w - GAP * (C + 1)) / C);
-    const rowsFor = cell => Math.floor((h - GAP * 3) / (cell + GAP)) - 1;
+    const full = Math.floor((w - GAP * 2 - HG * (C - 1)) / (0.75 * (C - 1) + 1));
+    const rowsFor = cell => { const sy = cell * 0.866 + HG; return Math.floor((h - GAP * 3 - sy / 2) / sy) - 1; };
     CELL = full;
-    // 6칸이 안 들어가면 칸을 조금(최대 12%) 줄여서라도 6칸
     while (fitRows && rowsFor(CELL) < 6 && CELL > full * 0.88) CELL--;
     if (fitRows) H = Math.max(5, Math.min(M.rows, rowsFor(CELL)));
-    // 아주 짧은 화면에서는 최소 5줄이 들어가게 칸을 줄임
-    CELL = Math.floor(Math.min(CELL, (h - GAP * (H + 3)) / (H + 1)));
-    BW = C * CELL + GAP * (C + 1);
+    // 정해진 칸 수(H)가 세로에 다 들어가게 칸 크기를 맞춤 (다시 그릴 때도)
+    CELL = Math.floor(Math.min(CELL, ((h - GAP * 3) / (H + 1.5) - HG) / 0.866));
+    geom();
+    BW = GAP * 2 + (C - 1) * SX + CELL;
     boxEl.style.width = BW + 'px';
-    boxEl.style.height = (H + 1) * CELL + GAP * (H + 3) + 'px';
-    $('dropRow').style.height = (CELL + GAP * 1.5) + 'px';
+    boxEl.style.height = GAP * 3 + (H + 1) * SY + SY / 2 + 'px';
+    $('dropRow').style.height = (SY + GAP) + 'px';
   }
   // 칸 왼쪽 위 (r = -1 은 들고 있는 줄)
-  const px = (c, r) => [GAP + c * (CELL + GAP), GAP * 2 + (r + 1) * (CELL + GAP)];
-  const mid = (c, r) => { const [x, y] = px(c, r); return [x + CELL / 2, y + CELL / 2]; };
+  const px = (c, r) => [GAP + c * SX, GAP * 2 + (r + 1) * SY + (c % 2 ? SY / 2 : 0)];
+  // 육각 이웃 6칸 (홀수 줄이 반 칸 아래)
+  const NBR = (r, c) => (c % 2
+    ? [[r + 1, c], [r, c - 1], [r, c + 1], [r + 1, c - 1], [r + 1, c + 1], [r - 1, c]]
+    : [[r + 1, c], [r, c - 1], [r, c + 1], [r - 1, c - 1], [r - 1, c + 1], [r - 1, c]]);
+  const mid = (c, r) => { const [x, y] = px(c, r); return [x + CELL / 2, y + HH / 2]; };
 
   const LV = () => M.levels[Math.min(S.level - 1, M.levels.length - 1)];
   function spawnStage() {
@@ -450,7 +464,7 @@ const M = {
     const el = document.createElement('div');
     el.className = `ball ${stageCls(t.stage)}`;
     applyTone(el, t);
-    el.style.width = el.style.height = CELL + 'px';
+    el.style.width = CELL + 'px'; el.style.height = HH + 'px';
     el.innerHTML = faceHTML(t.type.tile, S.stages[t.stage].key, CELL);
     el._t = t;
     boxEl.appendChild(el);
@@ -477,14 +491,14 @@ const M = {
       const ce = document.createElement('div');
       ce.className = 'col';
       const [x] = px(c, 0);
-      ce.style.left = (x - 2) + 'px'; ce.style.width = (CELL + 4) + 'px';
+      ce.style.left = (x + CELL * 0.12) + 'px'; ce.style.width = (CELL * 0.76) + 'px';
       ce.style.top = GAP + 'px'; ce.style.bottom = GAP + 'px';
       boxEl.appendChild(ce); colEls.push(ce);
       for (let r = 0; r < H; r++) {
         const s = document.createElement('div');
         s.className = 'slot';
         const [sx, sy] = px(c, r);
-        s.style.left = sx + 'px'; s.style.top = sy + 'px'; s.style.width = s.style.height = CELL + 'px';
+        s.style.left = sx + 'px'; s.style.top = sy + 'px'; s.style.width = CELL + 'px'; s.style.height = HH + 'px';
         boxEl.appendChild(s);
       }
     }
@@ -546,7 +560,7 @@ const M = {
       t.el.style.transitionDuration = '';
       // 착지 : 눌렸다 튀어 오르고, 먼지, 툭, 짧은 진동
       t.el.classList.remove('land'); void t.el.offsetWidth; t.el.classList.add('land');
-      dust(mx, my + CELL / 2 - 4);
+      dust(mx, my + HH / 2 - 4);
       sfx.land(); buzz(10); nudge();
     }
     await resolve([t]);
@@ -563,7 +577,7 @@ const M = {
     while (active.length) {
       const t = active.shift();
       if (!t || !S.grid[t.r] || S.grid[t.r][t.c] !== t) continue;
-      const gone = [[t.r + 1, t.c], [t.r, t.c - 1], [t.r, t.c + 1], [t.r - 1, t.c]]
+      const gone = NBR(t.r, t.c)
         .filter(([r, c]) => r >= 0 && r < H && c >= 0 && c < C).map(([r, c]) => S.grid[r][c]).filter(o => same(t, o));
       if (!gone.length) continue;
       for (const g of gone) S.grid[g.r][g.c] = null;
@@ -1054,7 +1068,7 @@ const M = {
 
   // 입력 : 손가락 좌우 → 줄 고르기, 떼면 떨어뜨림
   let touch = null;
-  const colAt = clientX => Math.floor((clientX - boxEl.getBoundingClientRect().left - GAP / 2) / (CELL + GAP));
+  const colAt = clientX => Math.round((clientX - boxEl.getBoundingClientRect().left - GAP - CELL / 2) / SX);
   boxEl.addEventListener('pointerdown', e => {
     sfx.unlock();
     if (S.over || S.paused || S.busy || S.crisis) return;
@@ -1098,8 +1112,8 @@ const M = {
           if (colFull(c)) continue;
           let r = H - 1; while (S.grid[r][c]) r--;
           let sc = Math.random() * (1 - skill) * 12 - (H - r) * 0.2;
-          for (const [rr, cc] of [[r + 1, c], [r, c - 1], [r, c + 1]]) {
-            const o = rr < H && cc >= 0 && cc < C ? S.grid[rr][cc] : null;
+          for (const [rr, cc] of NBR(r, c)) {
+            const o = rr >= 0 && rr < H && cc >= 0 && cc < C ? S.grid[rr][cc] : null;
             if (!o) continue;
             if (same(o, S.cur)) sc += 10 * skill;
             else if (o.type === S.cur.type) sc += (o.stage === S.cur.stage + 1 ? 3 : 1) * skill;
