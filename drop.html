@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#56636F">
+<title>ROBOT-DOT-COM 로봇닷컴 : 떨어뜨리기 시제품</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Sunflower:wght@700&family=Gowun+Dodum&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #56636F;
+    --fg: #F2F5F7;
+    --panel: #48535E;
+    --cell: #4A5662;
+    --me: #1FA8E8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; }
+  body {
+    font-family: 'Gowun Dodum', sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    height: 100dvh;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    user-select: none; -webkit-user-select: none;
+    touch-action: none; overscroll-behavior: none;
+  }
+
+  #hud { flex: none; text-align: center; padding: 8px 12px 4px; width: 100%; }
+  #title { font-family: 'Rye', serif; font-size: 24px; letter-spacing: 1px; line-height: 1.1; }
+  #subtitle { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 13px; opacity: .85; margin-top: 2px; }
+  #stats { display: flex; justify-content: center; gap: 6px; margin-top: 6px; font-size: 14px; }
+  .stat { background: var(--panel); border-radius: 8px; padding: 3px 9px; display: flex; gap: 6px; align-items: baseline; }
+  .stat b { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 16px; }
+  .stat.cash b { color: #FFE27A; }
+  .stat.cash.red { background: #8E2A24; animation: urgent .6s ease-in-out infinite alternate; }
+  .stat.cash.red b { color: #fff; }
+  @keyframes urgent { from { opacity: 1; } to { opacity: .6; } }
+
+  #main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; padding-top: 4px; }
+  #play { position: relative; }
+  #drop { position: relative; }
+  #nextBox { position: absolute; right: 0; top: 0; font-size: 11px; text-align: center; opacity: .85; }
+  #nextBox .mini { width: 34px; height: 34px; border-radius: 8px; position: relative; margin: 2px auto 0; overflow: hidden; }
+  #nextBox .mini .art { position: absolute; inset: 8%; }
+  #board { position: relative; background: #3E4852; border-radius: 12px; box-shadow: 0 0 0 4px #2E363E, 0 10px 24px rgba(0,0,0,.35); }
+  .slot { position: absolute; background: var(--cell); border-radius: 9px; }
+  .col { position: absolute; top: 0; bottom: 0; border-radius: 9px; background: rgba(255,255,255,.06); pointer-events: none; display: none; }
+  .col.on { display: block; }
+  .col.full { background: rgba(255, 90, 78, .15); }
+
+  .tile {
+    position: absolute; border-radius: 9px; overflow: hidden;
+    transition: translate .13s ease-in, opacity .13s;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.18);
+  }
+  .tile .art { position: absolute; left: 14%; top: 4%; width: 72%; height: 72%; }
+  .tile .stg { position: relative; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 11px; color: #1E252B; background: rgba(255,255,255,.72); border-radius: 5px; padding: 0 4px; margin-bottom: 3px; line-height: 1.3; white-space: nowrap; }
+  .tile.held { transition: translate .08s ease-out; z-index: 5; box-shadow: 0 6px 12px rgba(0,0,0,.4); }
+  .tile.merged { animation: merged .22s ease-out; }
+  .tile.gone { opacity: 0; }
+  .tile.pick { animation: pickGlow .55s ease-in-out infinite alternate; }
+  .tile.sel { filter: brightness(1.15) drop-shadow(0 0 6px #FFE27A); z-index: 3; }
+  @keyframes merged { 0% { scale: 1; } 50% { scale: 1.2; } 100% { scale: 1; } }
+  @keyframes pickGlow { from { filter: brightness(1); } to { filter: brightness(1.2) drop-shadow(0 0 6px #FF8A80); } }
+
+  .s0 { background: #C9D3DB; }
+  .s1 { background: #A8E0F0; }
+  .s2 { background: #8FE3C0; }
+  .s3 { background: #FFD27A; }
+  .s4 { background: linear-gradient(135deg, #FF8AD8, #B58CFF 50%, #6FD3FF); }
+  .s4 .stg { background: #fff; }
+
+  .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .art.bob { transform-origin: 50% 85%; animation: artBob 1s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .art.bob img.b { display: none; }
+  .art.bob.swap img.b { display: block; }
+  .art.bob.swap img { animation: artA 1s steps(1, end) infinite; animation-delay: var(--d, 0s); }
+  .art.bob.swap img.b { animation-name: artB; }
+  @keyframes artA { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes artB { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 1; } }
+  @keyframes artBob { 0%, 100% { rotate: -14deg; translate: 0 0; } 25% { rotate: 0deg; translate: 0 -18%; } 50% { rotate: 14deg; translate: 0 0; } 75% { rotate: 0deg; translate: 0 -18%; } }
+
+  #legendTypes { display: flex; gap: 10px; justify-content: center; font-size: 12px; }
+  #legendTypes span { display: inline-flex; align-items: center; gap: 3px; }
+  #legendTypes img { width: 22px; height: 22px; }
+  #hint { font-size: 12.5px; opacity: .8; text-align: center; padding: 0 16px; }
+  #hall { width: 100%; max-width: 370px; text-align: center; }
+  #hall .list { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; min-height: 26px; }
+  #hall .item { display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(135deg, #8A3D7A, #5541A8); border-radius: 8px; padding: 2px 8px 2px 4px; font-size: 12px; }
+  #hall .item img { width: 22px; height: 22px; }
+  #hall .item b { font-family: 'IBM Plex Mono', monospace; color: #FFE27A; }
+  #hall .none { font-size: 12px; opacity: .5; }
+
+  #actions { flex: none; display: flex; gap: 6px; padding: 6px 10px 10px; width: 100%; max-width: 390px; }
+  #actions button { flex: 1; height: 46px; border: none; border-radius: 10px; background: var(--panel); color: var(--fg); font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; }
+
+  .float {
+    position: absolute; z-index: 6; pointer-events: none; transform: translate(-50%, -50%);
+    font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 18px; color: #FFE27A;
+    text-shadow: 0 1px 0 #2A2F35, 0 0 4px #2A2F35; animation: floatUp 1.1s ease-out forwards; white-space: nowrap;
+  }
+  @keyframes floatUp { to { transform: translate(-50%, -60px); opacity: 0; } }
+
+  #banner {
+    position: fixed; left: 50%; top: 40%; z-index: 20; pointer-events: none;
+    background: rgba(30, 36, 42, .9); border-radius: 12px; padding: 12px 18px;
+    font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 18px; text-align: center;
+    opacity: 0; transform: translate(-50%, -50%) scale(.5); white-space: nowrap;
+  }
+  #banner.show { animation: banner 1.8s ease-out; }
+  #banner.ipo { background: linear-gradient(135deg, #C2367F, #6A4BD8); }
+  @keyframes banner { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 25% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -70%) scale(1); } }
+
+  /* 매각 창 : 판 아래 안내문 자리를 대신 차지 (판을 가리지 않음) */
+  #sellSheet {
+    pointer-events: none; width: calc(100% - 20px);
+    max-width: 370px; margin: 0 auto;
+    background: #2E363E; border: 3px solid #FF5A4E; border-radius: 16px; padding: 10px 14px;
+    text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,.45); animation: sheetIn .2s ease-out;
+  }
+  #sellSheet.hide { display: none; }
+  #main.sheet #legendTypes, #main.sheet #hint, #main.sheet #hall { display: none; }
+  @keyframes sheetIn { from { transform: translateY(20px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+  #sellSheet .who { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 17px; }
+  #sellSheet .big { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 38px; line-height: 1.05; color: #FFE27A; margin-top: 2px; }
+  #sellSheet .how { font-size: 12px; opacity: .75; }
+  #sellSheet .tip { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 14px; color: #FF8A80; margin-top: 4px; }
+
+  #over {
+    position: fixed; inset: 0; z-index: 30; background: rgba(40, 47, 54, .94);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 20px;
+  }
+  #over.hide { display: none; }
+  #over .big { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 26px; }
+  #over .score { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 46px; color: #FFE27A; }
+  #over p { font-size: 14px; opacity: .85; line-height: 1.6; }
+  #over button { margin-top: 12px; height: 52px; padding: 0 28px; border: none; border-radius: 10px; background: var(--me); color: #10222C; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 17px; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="title">★ROBOT-DOT-COM★</div>
+  <div id="subtitle">로봇닷컴 : 떨어뜨리기 시제품</div>
+  <div id="stats">
+    <div class="stat"><span>레벨</span><b id="sLevel">1</b></div>
+    <div class="stat"><span>턴</span><b id="sTurn">0</b></div>
+    <div class="stat cash" id="sCashBox"><span>지갑</span><b id="sCash">0</b></div>
+    <div class="stat"><span>판 몸값</span><b id="sBoard">0</b></div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="play">
+    <div id="drop"></div>
+    <div id="nextBox">다음<div class="mini" id="nextTile"></div></div>
+    <div id="board"></div>
+  </div>
+  <div id="legendTypes"></div>
+  <div id="hint">손가락을 좌우로 움직여 줄을 고르고, 떼면 떨어져요. 같은 로봇·같은 단계끼리 닿으면 합쳐져요.</div>
+  <div id="hall"><div class="list" id="hallList"></div></div>
+<div id="sellSheet" class="hide">
+  <div class="who" id="shWho"></div>
+  <div class="big" id="shCost"></div>
+  <div class="how" id="shHow"></div>
+  <div class="tip" id="shTip"></div>
+</div>
+</div>
+
+<div id="actions">
+  <button id="bNew">새 판</button>
+</div>
+
+<div id="banner"></div>
+
+
+<div id="over" class="hide">
+  <div class="big" id="overTitle"></div>
+  <div class="score" id="overScore"></div>
+  <p id="overText"></p>
+  <button id="bRestart">다시 창업</button>
+</div>
+
+<script>
+// 시제품 수치표 (확정되면 config.js로 옮김)
+const M = {
+  cols: 5,                 // 줄 수 (?c=)
+  rows: 7,                 // 높이 (?h=)
+  levelTypes: [2, 2, 3],   // 레벨별 로봇 종류 수 (마지막 값이 이후 레벨에 계속). ?t= 로 고정
+  seedChance: 0.15,        // 새 회사가 시드 단계로 나올 확률
+  startCash: 100,
+  // 단계 : 같은 로봇·같은 단계 둘이 닿으면 한 단계 위. 유니콘 둘이 합쳐지면 상장(레벨 클리어).
+  // 떨어뜨릴 때 그 회사 몸값만큼 돈이 나가고, 합병하면 (새 몸값 - 두 몸값) × 연쇄 횟수만큼 들어옴.
+  stages: [
+    { name: '창업',    value: 10 },
+    { name: '시드',    value: 25 },
+    { name: '시리즈A', value: 60 },
+    { name: '시리즈B', value: 150 },
+    { name: '유니콘',  value: 400 },
+    { name: '상장',    value: 1000 }
+  ],
+  ipoMul: 5,               // 상장 대금 = 상장 단계 몸값 × 이 배수
+  dumpRate: 0.5,           // 손해 매각 = 몸값의 이 비율
+  types: [
+    { key: 'arm',  name: '협동로봇',   tile: 'robot-cobot', grade: 1.0 },
+    { key: 'amr',  name: 'AMR',        tile: 'robot-amr',   grade: 0.8 },
+    { key: 'legs', name: '4족보행',    tile: 'robot-quad',  grade: 1.3 },
+    { key: 'hum',  name: '휴머노이드', tile: 'tile-hum',    grade: 2.0 }
+  ]
+};
+
+(() => {
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('c')) M.cols = +qs.get('c');
+  if (qs.get('h')) M.rows = +qs.get('h');
+  if (qs.get('t')) M.levelTypes = [+qs.get('t')];
+  if (qs.get('seed')) M.seedChance = +qs.get('seed');
+  // ?st=5 : 유니콘 앞 단계 하나 빼기 (시험용)
+  if (qs.get('st')) { const keep = +qs.get('st'); while (M.stages.length > keep) M.stages.splice(M.stages.length - 3, 1); }
+
+  const C = M.cols, H = M.rows;
+  const $ = id => document.getElementById(id);
+  const rnd = n => Math.floor(Math.random() * n);
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const boardEl = $('board');
+  const TOP = M.stages.length - 1;
+
+  // grid[r][c] : r = 0이 맨 위
+  const S = { grid: [], cash: 0, turn: 0, level: 1, types: [], seen: {}, cur: null, next: null, col: 2, busy: false, over: false, cleared: false, dumping: false, sel: null, dumps: 0, hall: [], nextId: 1, ipos: 0, firstIpo: 0, minCash: 0 };
+
+  const valueOf = (stage, type) => Math.round(M.stages[stage].value * type.grade);
+  const value = t => valueOf(t.stage, t.type);
+  const dumpValue = t => Math.round(value(t) * M.dumpRate);
+  const newTile = () => ({ id: S.nextId++, type: S.types[rnd(S.types.length)], stage: Math.random() < M.seedChance ? 1 : 0 });
+  const tiles = () => { const out = []; for (let r = 0; r < H; r++) for (let c = 0; c < C; c++) if (S.grid[r][c]) out.push(S.grid[r][c]); return out; };
+  const colFull = c => !!S.grid[0][c];
+  const allFull = () => [...Array(C).keys()].every(colFull);
+  const same = (a, b) => a && b && a.type === b.type && a.stage === b.stage;
+
+  // 판 크기
+  let CELL = 64, GAP = 5;
+  function layout() {
+    const w = Math.min(window.innerWidth, 390) - 24;
+    const h = $('main').clientHeight - 150;   // 아래 안내문·매각 창 자리
+    CELL = Math.min((w - GAP * (C + 1)) / C, (h - GAP * (H + 2)) / (H + 1));
+    const bw = C * CELL + GAP * (C + 1), bh = H * CELL + GAP * (H + 1);
+    boardEl.style.width = bw + 'px'; boardEl.style.height = bh + 'px';
+    $('drop').style.width = bw + 'px'; $('drop').style.height = (CELL + GAP * 2) + 'px';
+  }
+  const px = (c, r) => [GAP + c * (CELL + GAP), GAP + r * (CELL + GAP)];
+
+  function artHTML(tile) {
+    return `<span class="art bob swap" style="--d:-${(Math.random() * 1.1).toFixed(2)}s">` +
+      `<img src="assets/${tile}-a.png" alt=""><img class="b" src="assets/${tile}-b.png" alt=""></span>`;
+  }
+  function tileEl(t, parent) {
+    const el = document.createElement('div');
+    el.className = `tile s${t.stage}`;
+    el.style.width = el.style.height = CELL + 'px';
+    el.innerHTML = artHTML(t.type.tile) + `<span class="stg">${M.stages[t.stage].name}</span>`;
+    el._t = t;
+    parent.appendChild(el);
+    t.el = el;
+    return el;
+  }
+  function restyle(t) {
+    t.el.className = `tile s${t.stage}`;
+    t.el.querySelector('.stg').textContent = M.stages[t.stage].name;
+  }
+  function placeEl(t) { const [x, y] = px(t.c, t.r); t.el.style.translate = `${x}px ${y}px`; }
+
+  let colEls = [];
+  function buildBoard() {
+    layout();
+    boardEl.innerHTML = '';
+    colEls = [];
+    for (let c = 0; c < C; c++) {
+      const ce = document.createElement('div');
+      ce.className = 'col';
+      ce.style.left = px(c, 0)[0] + 'px'; ce.style.width = CELL + 'px';
+      boardEl.appendChild(ce); colEls.push(ce);
+      for (let r = 0; r < H; r++) {
+        const s = document.createElement('div');
+        s.className = 'slot';
+        const [x, y] = px(c, r);
+        s.style.left = x + 'px'; s.style.top = y + 'px'; s.style.width = s.style.height = CELL + 'px';
+        boardEl.appendChild(s);
+      }
+    }
+    for (const t of tiles()) { tileEl(t, boardEl); placeEl(t); }
+    $('drop').innerHTML = '';
+    if (S.cur) { tileEl(S.cur, $('drop')); S.cur.el.classList.add('held'); aim(S.col); }
+    paintNext();
+  }
+
+  // 들고 있는 회사를 c번 줄 위로
+  function aim(c) {
+    S.col = Math.max(0, Math.min(C - 1, c));
+    if (S.cur && S.cur.el) S.cur.el.style.translate = `${px(S.col, 0)[0]}px ${GAP}px`;
+    colEls.forEach((ce, i) => { ce.classList.toggle('on', i === S.col && !S.busy); ce.classList.toggle('full', i === S.col && colFull(i)); });
+  }
+
+  function paintNext() {
+    const box = $('nextTile');
+    box.className = 'mini' + (S.next ? ' s' + S.next.stage : '');
+    box.innerHTML = S.next ? artHTML(S.next.type.tile) : '';
+  }
+
+  function spawn() {
+    S.cur = S.next || newTile();
+    S.next = newTile();
+    if (!SIM) {
+      $('drop').innerHTML = '';
+      tileEl(S.cur, $('drop')).classList.add('held');
+      aim(S.col);
+      paintNext();
+    }
+  }
+
+  // 떨어뜨리고 합병을 끝까지 풀어냄. SIM이 아니면 단계마다 화면에 보여 줌.
+  async function dropAt(c) {
+    if (S.busy || S.over || S.dumping === 'forced' || colFull(c)) return false;
+    S.busy = true;
+    clearPick();
+    const t = S.cur;
+    S.cur = null;
+    let r = H - 1;
+    while (S.grid[r][c]) r--;
+    t.c = c; t.r = r;
+    S.grid[r][c] = t;
+    const cost = value(t);
+    S.cash -= cost;
+    S.minCash = Math.min(S.minCash, S.cash);
+    S.turn++;
+    if (!SIM) {
+      const [x0] = px(c, 0);
+      boardEl.appendChild(t.el);
+      t.el.classList.remove('held');
+      t.el.style.transition = 'none';
+      t.el.style.translate = `${x0}px ${-CELL}px`;
+      void t.el.offsetWidth;
+      t.el.style.transition = '';
+      t.el.style.transitionDuration = (0.06 * (r + 1) + 0.08) + 's';
+      placeEl(t);
+      floatAt(c, r, '-' + cost, true);
+      paintHUD();
+      await sleep(70 * (r + 1) + 90);
+      t.el.style.transitionDuration = '';
+    }
+    await resolve([t]);
+    S.busy = false;
+    if (S.over) return true;
+    spawn();
+    settle();
+    return true;
+  }
+
+  // 닿은 같은 회사끼리 합병 → 빈자리로 위 회사들이 내려옴 → 또 합병 (연쇄)
+  async function resolve(active) {
+    let chain = 0;
+    while (active.length) {
+      const t = active.shift();
+      if (!t || S.grid[t.r] === undefined || S.grid[t.r][t.c] !== t) continue;
+      // 아래 > 왼쪽 > 오른쪽 > 위 순서로 짝 찾기
+      const nb = [[t.r + 1, t.c], [t.r, t.c - 1], [t.r, t.c + 1], [t.r - 1, t.c]]
+        .filter(([r, c]) => r >= 0 && r < H && c >= 0 && c < C).map(([r, c]) => S.grid[r][c]).find(o => same(t, o));
+      if (!nb) continue;
+      chain++;
+      // 아래쪽(같으면 기존) 자리에 결과가 남음
+      const [keep, gone] = nb.r > t.r || (nb.r === t.r) ? [nb, t] : [t, nb];
+      S.grid[gone.r][gone.c] = null;
+      if (keep.stage + 1 === TOP) {
+        S.grid[keep.r][keep.c] = null;
+        await ipo(keep, gone);
+        return;
+      }
+      const gain = (valueOf(keep.stage + 1, keep.type) - 2 * value(keep)) * chain;
+      keep.stage++;
+      S.cash += gain;
+      if (!SIM) {
+        gone.el.style.translate = keep.el.style.translate;
+        gone.el.classList.add('gone');
+        setTimeout(() => gone.el.remove(), 150);
+        await sleep(110);
+        restyle(keep);
+        keep.el.classList.remove('merged'); void keep.el.offsetWidth; keep.el.classList.add('merged');
+        floatAt(keep.c, keep.r, '+' + gain + (chain > 1 ? ` 연쇄 ${chain}` : '') + (keep.stage >= TOP - 1 ? ' ' + M.stages[keep.stage].name + '!' : ''));
+        paintHUD();
+        await sleep(120);
+      }
+      const moved = await gravity();
+      active.unshift(keep, ...moved);
+    }
+  }
+
+  // 빈칸 위의 회사들이 아래로 내려옴. 움직인 회사 목록을 돌려줌.
+  async function gravity() {
+    const moved = [];
+    for (let c = 0; c < C; c++) {
+      let w = H - 1;
+      for (let r = H - 1; r >= 0; r--) {
+        const t = S.grid[r][c];
+        if (!t) continue;
+        if (r !== w) { S.grid[w][c] = t; S.grid[r][c] = null; t.r = w; moved.push(t); }
+        w--;
+      }
+    }
+    if (!SIM && moved.length) { for (const t of moved) placeEl(t); await sleep(140); }
+    return moved;
+  }
+
+  // 상장 : 판에서 사라지고 명예의 전당으로, 레벨 클리어
+  async function ipo(keep, gone) {
+    const v = valueOf(TOP, keep.type) * M.ipoMul;
+    S.cash += v;
+    S.ipos++;
+    if (!S.firstIpo) S.firstIpo = S.turn;
+    S.hall.push({ type: keep.type, v });
+    if (SIM) { S.over = true; S.cleared = true; return; }
+    gone.el.style.translate = keep.el.style.translate;
+    gone.el.classList.add('gone');
+    keep.el.classList.add('gone');
+    setTimeout(() => { gone.el.remove(); keep.el.remove(); }, 200);
+    floatAt(keep.c, keep.r, '+' + v);
+    banner(`${keep.type.name} 상장! +${v}`, true);
+    paintHall();
+    paintHUD();
+    S.over = true; S.cleared = true;
+    setTimeout(() => {
+      $('overTitle').textContent = `레벨 ${S.level} 클리어!`;
+      $('overScore').textContent = '+' + v;
+      $('overText').innerHTML = `${keep.type.name} 회사가 상장했어요 · ${S.turn}턴 · 손해 매각 ${S.dumps}번<br>지갑 ${S.cash} (다음 레벨로 이어져요)`;
+      $('bRestart').textContent = `레벨 ${S.level + 1} 시작`;
+      $('over').classList.remove('hide');
+    }, 1400);
+  }
+
+  // 행동 뒤 : 줄이 다 차면 손해 매각, 적자면 독촉
+  function settle() {
+    if (allFull()) startDump();
+    else if (S.cash < 0) startNag();
+    paintHUD();
+  }
+
+  function startDump() {
+    S.dumping = 'forced';
+    if (SIM) return;
+    for (const t of tiles()) t.el.classList.add('pick');
+    $('shWho').textContent = '손해 매각';
+    $('shCost').textContent = '반값';
+    $('shCost').style.color = '';
+    $('shHow').textContent = '모든 줄이 꽉 찼어요';
+    $('shTip').textContent = '팔 회사를 누르세요 (몸값의 ' + M.dumpRate * 100 + '%)';
+    showSheet();
+  }
+  function startNag() {
+    S.dumping = 'nag';
+    if (SIM) return;
+    for (const t of tiles()) t.el.classList.add('pick');
+    $('shWho').textContent = '적자! 회사를 팔아 메우세요';
+    $('shCost').textContent = S.cash;
+    $('shCost').style.color = '#FF8A80';
+    $('shHow').textContent = '팔 회사를 누르면 반값을 보여 줘요. 무시하고 계속 둘 수도 있어요.';
+    $('shTip').textContent = '매각하세요 매각하세요 매각하세요';
+    showSheet();
+    if (navigator.vibrate) navigator.vibrate(40);
+  }
+  function clearPick() {
+    S.dumping = false; S.sel = null;
+    if (SIM) return;
+    $('sellSheet').classList.add('hide');
+    $('main').classList.remove('sheet');
+    for (const t of tiles()) t.el.classList.remove('pick', 'sel');
+  }
+  function pickDump(t) {
+    if (S.sel === t) { dump(t); return; }
+    if (S.sel) { S.sel.el.classList.remove('sel'); S.sel.el.classList.add('pick'); }
+    S.sel = t;
+    t.el.classList.remove('pick'); t.el.classList.add('sel');
+    $('shWho').textContent = `${t.type.name} ${M.stages[t.stage].name} 손해 매각`;
+    $('shCost').textContent = dumpValue(t);
+    $('shCost').style.color = '';
+    $('shHow').textContent = `몸값 ${value(t)}의 ${M.dumpRate * 100}%`;
+    $('shTip').textContent = '같은 회사를 한 번 더 누르면 팔아요';
+    showSheet();
+  }
+  async function dump(t) {
+    const v = dumpValue(t);
+    S.cash += v;
+    S.dumps++;
+    clearPick();
+    S.grid[t.r][t.c] = null;
+    if (!SIM) {
+      floatAt(t.c, t.r, '+' + v);
+      t.el.classList.add('gone');
+      setTimeout(() => t.el.remove(), 200);
+      S.busy = true;
+      await sleep(150);
+    }
+    const moved = await gravity();
+    await resolve(moved);
+    S.busy = false;
+    if (!S.over) settle();
+  }
+  function showSheet() {
+    const sh = $('sellSheet');
+    sh.classList.remove('hide');
+    $('main').classList.add('sheet');
+    sh.style.animation = 'none'; void sh.offsetWidth; sh.style.animation = '';
+  }
+
+  const boardValue = () => tiles().reduce((v, t) => v + value(t), 0);
+  function paintHUD() {
+    if (SIM) return;
+    $('sLevel').textContent = S.level;
+    $('sTurn').textContent = S.turn;
+    $('sCash').textContent = S.cash;
+    $('sCashBox').classList.toggle('red', S.cash < 0);
+    $('sBoard').textContent = boardValue();
+  }
+  function paintHall() {
+    $('hallList').innerHTML = S.hall.length
+      ? S.hall.map((h, i) => `<span class="item"><img src="assets/${h.type.tile}-a.png" alt="">#${i + 1} ${h.type.name} <b>+${h.v}</b></span>`).join('')
+      : '<span class="none">상장사 명예의 전당 : 유니콘 둘을 합치면 상장해서 여기에 올라요</span>';
+  }
+  function floatAt(c, r, text, minus) {
+    const [x, y] = px(c, r);
+    const f = document.createElement('div');
+    f.className = 'float';
+    if (minus) f.style.color = '#FF8A80';
+    f.textContent = text;
+    f.style.left = (x + CELL / 2) + 'px';
+    f.style.top = (y + CELL / 3) + 'px';
+    boardEl.appendChild(f);
+    setTimeout(() => f.remove(), 1200);
+  }
+  let bannerT = 0;
+  function banner(text, ipoStyle) {
+    if (SIM) return;
+    const b = $('banner');
+    b.textContent = text;
+    b.classList.toggle('ipo', !!ipoStyle);
+    b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+    clearTimeout(bannerT);
+    bannerT = setTimeout(() => b.classList.remove('show'), 1900);
+  }
+
+  let SIM = false;
+  function newGame(sim) {
+    SIM = !!sim;
+    S.cash = M.startCash; S.hall = []; S.level = 1; S.ipos = 0; S.firstIpo = 0; S.minCash = M.startCash;
+    S.seen = Object.fromEntries(M.types.map(t => [t.key, 0]));
+    startLevel();
+  }
+  function startLevel() {
+    S.grid = Array.from({ length: H }, () => Array(C).fill(null));
+    S.turn = 0; S.over = false; S.cleared = false; S.dumps = 0; S.dumping = false; S.sel = null; S.busy = false;
+    S.cur = null; S.next = null; S.col = Math.floor(C / 2);
+    const k = M.levelTypes[Math.min(S.level - 1, M.levelTypes.length - 1)];
+    S.types = shuffle([...M.types]).sort((a, b) => S.seen[a.key] - S.seen[b.key]).slice(0, k);
+    for (const t of S.types) S.seen[t.key]++;
+    if (!SIM) {
+      $('bRestart').textContent = '다시 창업';
+      $('legendTypes').innerHTML = S.types.map(t => `<span><img src="assets/${t.tile}-a.png" alt="">${t.name} ×${t.grade}</span>`).join('');
+      $('over').classList.add('hide');
+      $('sellSheet').classList.add('hide');
+      buildBoard();
+      paintHall();
+    }
+    spawn();
+    paintHUD();
+  }
+
+  // 입력 : 판이나 위쪽에서 손가락을 좌우로 → 줄 고르기, 떼면 떨어뜨림. 손해 매각·독촉 중 회사를 짧게 누르면 고름.
+  let touch = null;
+  function colAt(clientX) {
+    const rect = boardEl.getBoundingClientRect();
+    return Math.floor((clientX - rect.left - GAP / 2) / (CELL + GAP));
+  }
+  $('play').addEventListener('pointerdown', e => {
+    if (S.over || S.busy) return;
+    e.preventDefault();
+    touch = { x: e.clientX, y: e.clientY, id: e.pointerId, tileEl: e.target.closest('#board .tile') };
+    $('play').setPointerCapture(e.pointerId);
+    if (S.dumping !== 'forced') aim(colAt(e.clientX));
+  });
+  $('play').addEventListener('pointermove', e => {
+    if (!touch || e.pointerId !== touch.id || S.dumping === 'forced') return;
+    aim(colAt(e.clientX));
+  });
+  $('play').addEventListener('pointerup', e => {
+    if (!touch || e.pointerId !== touch.id) return;
+    const t0 = touch; touch = null;
+    const short = Math.hypot(e.clientX - t0.x, e.clientY - t0.y) < 10;
+    // 매각 고르기 : 회사를 짧게 누름
+    if (S.dumping && short && t0.tileEl && t0.tileEl._t) { pickDump(t0.tileEl._t); return; }
+    if (S.dumping === 'forced') return;
+    const c = colAt(e.clientX);
+    if (c < 0 || c >= C) return;
+    if (colFull(c)) { banner('이 줄은 꽉 찼어요'); return; }
+    dropAt(c);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') aim(S.col - 1);
+    else if (e.key === 'ArrowRight') aim(S.col + 1);
+    else if (e.key === 'ArrowDown' || e.key === ' ') dropAt(S.col);
+  });
+
+  $('bNew').addEventListener('click', () => { if ((S.turn === 0 && S.level === 1) || confirm('레벨 1부터 새로 시작할까요?')) newGame(); });
+  $('bRestart').addEventListener('click', () => { if (S.cleared) { S.level++; startLevel(); } else newGame(); });
+  window.addEventListener('resize', buildBoard);
+
+  // 시험용 봇 : 줄마다 떨어뜨려 보고 연쇄·합병이 가장 많은 줄을 고름. window.simulate(판 수, 최대 턴)
+  window.simulate = async (games, maxTurns = 300) => {
+    const out = [];
+    for (let g = 0; g < games; g++) {
+      newGame(true);
+      while (!S.over && S.turn < maxTurns) {
+        if (S.dumping === 'forced') {
+          const ts = tiles().sort((a, b) => a.stage - b.stage || a.r - b.r);
+          await dump(ts[0]);
+          continue;
+        }
+        let best = -1, bs = -Infinity;
+        for (let c = 0; c < C; c++) {
+          if (colFull(c)) continue;
+          let r = H - 1; while (S.grid[r][c]) r--;
+          const t = S.cur;
+          let sc = Math.random() * 0.5 - (H - r) * 0.1;
+          for (const [rr, cc] of [[r + 1, c], [r, c - 1], [r, c + 1]]) {
+            const o = rr < H && cc >= 0 && cc < C ? S.grid[rr][cc] : null;
+            if (!o) continue;
+            if (same(o, t)) sc += 10;
+            else if (o.type === t.type) sc += o.stage === t.stage + 1 ? 3 : 1;
+            else sc -= 1;
+          }
+          if (sc > bs) { bs = sc; best = c; }
+        }
+        if (best < 0) { startDump(); continue; }
+        await dropAt(best);
+        if (S.cleared) break;
+      }
+      out.push({ firstIpo: S.firstIpo, dumps: S.dumps, turn: S.turn, cash: S.cash, minCash: S.minCash });
+    }
+    newGame();
+    return out;
+  };
+
+  newGame();
+})();
+</script>
+</body>
+</html>
