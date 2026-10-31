@@ -206,7 +206,6 @@
 
 <div id="main">
   <div id="box"><div id="dropRow"></div><div id="debt"></div></div>
-  <div id="legendTypes"></div>
 </div>
 
 <div id="actions"><button id="bDex">도감</button><button id="bSound">소리 켬</button><button id="bNew">새 판</button></div>
@@ -316,7 +315,7 @@ const M = {
   // 판 크기 : 가로를 화면 폭에 꽉 맞추고, 그 칸 크기로 세로에 들어가는 줄 수를 정함 (fitRows 일 때만 줄 수를 바꿈)
   function layout(fitRows) {
     const w = Math.min(window.innerWidth, 480) - 12;
-    const h = $('main').clientHeight - 30;   // 아래 로봇 종류 한 줄
+    const h = $('main').clientHeight - 6;
     const full = Math.floor((w - GAP * (C + 1)) / C);
     const rowsFor = cell => Math.floor((h - GAP * 3) / (cell + GAP)) - 1;
     CELL = full;
@@ -658,7 +657,6 @@ const M = {
     if (!SIM) {
       buildBoard();
       $('bRestart').textContent = '다시 창업';
-      $('legendTypes').innerHTML = S.types.map(t => `<span><img src="assets/${t.tile}-a.png" alt="">${t.name} ×${t.grade}</span>`).join('');
       $('over').classList.add('hide');
     }
     spawn();
