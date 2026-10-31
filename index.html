@@ -167,7 +167,8 @@
   .ball .face::before { display: none; }
   .st-uni .face { background: none; }
   .ball::after { left: 22%; top: 9%; width: 42%; height: 22%; }
-  .ball .num { left: 50%; top: 5%; width: 24%; height: 26%; transform: translateX(-50%); }
+  /* 숫자는 테두리(바깥 6%) 안쪽에 : 윗변을 가리지 않게 */
+  .ball .num { left: 50%; top: 12%; width: 20%; height: 23%; transform: translateX(-50%); }
   .ball.gone { opacity: 0; transition: translate .12s, opacity .12s; }
   .ball.pop { animation: pop .25s ease-out; }
   .ball.pick { animation: pickGlow .55s ease-in-out infinite alternate; }
