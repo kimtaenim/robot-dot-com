@@ -177,11 +177,12 @@
   .st-uni   { --c3: #C8962A; --ink: #FFFFFF; background: #fff; border-color: #E8B94A; }
   /* 유니콘 : 빨강에서 보라까지 무지개 띠가 흐르고, 별이 반짝임 */
   .ball .rb { position: absolute; inset: 0; border-radius: inherit; z-index: 0; pointer-events: none;
-    /* 빨-주-노-초-파-남-보 다음 다시 보라→빨강으로 이어지는 반복 띠를 한 바퀴(175px)씩 밀어 끊김 없이 흐름 */
-    background: repeating-linear-gradient(90deg, #FF4D4D 0px, #FF9F1C 25px, #FFE14D 50px, #4DD67A 75px, #3FA9F5 100px, #5B5BE8 125px, #A64DF0 150px, #FF4D4D 175px);
-    animation: rainbow 2.6s linear infinite; }
+    /* 빨-주-노-초-파-남-보 다음 다시 보라→빨강으로 이어지는 반복 띠(한 바퀴 70px, 대각선).
+       가로로 70 / cos(30°) = 80.8px 밀면 정확히 한 바퀴라 끊김 없이 흐름 */
+    background: repeating-linear-gradient(120deg, #FF4D4D 0px, #FF9F1C 10px, #FFE14D 20px, #4DD67A 30px, #3FA9F5 40px, #5B5BE8 50px, #A64DF0 60px, #FF4D4D 70px);
+    animation: rainbow 2.2s linear infinite; }
   .ball .rb::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at 34% 28%, rgba(255,255,255,.7), rgba(255,255,255,0) 55%); }
-  @keyframes rainbow { from { background-position: 0 0; } to { background-position: 175px 0; } }
+  @keyframes rainbow { from { background-position: 0 0; } to { background-position: 80.83px 0; } }
   .st-uni { animation: uniGlow 1.2s ease-in-out infinite alternate; }
   @keyframes uniGlow { from { box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 4px 0 var(--c3), 0 0 6px 1px rgba(255, 226, 122, .5); } to { box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 4px 0 var(--c3), 0 0 16px 4px rgba(255, 180, 240, .9); } }
   .ball .tw { position: absolute; z-index: 5; color: #fff; pointer-events: none; text-shadow: 0 0 4px #fff, 0 0 8px #FFE27A; animation: twinkle 1.4s ease-in-out infinite; }
