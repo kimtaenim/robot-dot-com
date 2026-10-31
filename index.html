@@ -335,7 +335,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.10.31-4';
+const BUILD_V = '2026.10.31-5';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -455,6 +455,9 @@ const M = {
   const newTile = () => ({ id: S.nextId++, type: S.types[rnd(S.types.length)], stage: spawnStage() });
   const tiles = () => { const out = []; for (let r = 0; r < H; r++) for (let c = 0; c < C; c++) if (S.grid[r][c]) out.push(S.grid[r][c]); return out; };
   const colFull = c => !!S.grid[0][c];
+  // 꽉 찬 줄이라도 맨 위 회사와 같으면 그 위로 떨어뜨려 바로 합병
+  const topMerge = c => colFull(c) && S.cur && same(S.grid[0][c], S.cur);
+  const canDrop = c => !colFull(c) || topMerge(c);
   const allFull = () => [...Array(C).keys()].every(colFull);
   const same = (a, b) => a && b && a.type === b.type && a.stage === b.stage;
 
@@ -521,7 +524,7 @@ const M = {
     S.col = Math.max(0, Math.min(C - 1, c));
     if (SIM) return;
     if (S.cur && S.cur.el) { const [x] = px(S.col, -1); S.cur.el.style.translate = `${x}px ${GAP * 2}px`; }   // 들고 있는 줄은 엇갈리지 않음
-    colEls.forEach((ce, i) => { ce.classList.toggle('on', i === S.col && !S.busy); ce.classList.toggle('full', i === S.col && colFull(i)); });
+    colEls.forEach((ce, i) => { ce.classList.toggle('on', i === S.col && !S.busy); ce.classList.toggle('full', i === S.col && !canDrop(i)); });
   }
 
   function spawn() {
@@ -546,12 +549,15 @@ const M = {
   // 떨어뜨리기 : 그 줄 맨 아래 빈칸까지 → 합병을 끝까지 풂
   async function dropAt(c) {
     if (S.busy || S.over || S.crisis || S.paused || !S.cur) return;
-    if (colFull(c)) { banner('이 줄은 꽉 찼어요'); return; }
+    if (!canDrop(c)) { banner('이 줄은 꽉 찼어요'); return; }
     S.busy = true;
     const t = S.cur;
     S.cur = null;
+    // 꽉 찬 줄 : 맨 위 회사를 흡수하며 그 자리로 (topGone)
+    const topGone = colFull(c) ? S.grid[0][c] : null;
     let r = H - 1;
-    while (S.grid[r][c]) r--;
+    while (r > 0 && S.grid[r][c] && !topGone) r--;
+    if (topGone) r = 0;
     t.c = c; t.r = r;
     S.grid[r][c] = t;
     const cost = value(t);
@@ -576,7 +582,7 @@ const M = {
       dust(mx, my + HH / 2 - 4);
       sfx.land(); buzz(10); nudge();
     }
-    await resolve([t]);
+    await resolve([t], topGone);
     S.busy = false;
     if (S.over) return;
     spawn();
@@ -586,14 +592,16 @@ const M = {
   // 닿은 같은 회사끼리 합병 → 빈자리로 위 회사들이 내려옴 → 또 합병 (연쇄, 수입이 연쇄 횟수만큼 배로)
   // 합병 : 움직인 회사(t)가 닿은 같은 회사를 전부 한꺼번에 흡수하고 제자리에 남음.
   //   하나와 닿으면 한 단계, 둘이면 두 단계, 셋이면 세 단계 위로. 위 칸이 내려와 또 닿으면 연쇄(수입 배수).
-  async function resolve(active) {
+  //   extra : 꽉 찬 줄 위로 떨어뜨렸을 때 흡수되는 맨 위 회사 (이미 자리를 내줌)
+  async function resolve(active, extra) {
     while (active.length) {
       const t = active.shift();
       if (!t || !S.grid[t.r] || S.grid[t.r][t.c] !== t) continue;
       const gone = NBR(t.r, t.c)
         .filter(([r, c]) => r >= 0 && r < H && c >= 0 && c < C).map(([r, c]) => S.grid[r][c]).filter(o => same(t, o));
+      if (extra) { gone.push(extra); extra = null; }
       if (!gone.length) continue;
-      for (const g of gone) S.grid[g.r][g.c] = null;
+      for (const g of gone) if (S.grid[g.r][g.c] === g) S.grid[g.r][g.c] = null;
       const stage = Math.min(S.top, t.stage + gone.length);
       if (!SIM) for (const g of gone) { g.el.style.translate = t.el.style.translate; g.el.classList.add('suck'); setTimeout(() => g.el.remove(), 160); }
       if (stage === S.top) {
@@ -677,7 +685,7 @@ const M = {
     paintHUD();
     if (S.over) return;
     if (S.cash < -M.crisisAt) await fireSale();
-    else if (allFull()) await overflowSell();
+    else if (allFull() && ![...Array(C).keys()].some(topMerge)) await overflowSell();   // 맨 위에 합칠 수 있으면 자리 위기 아님
     save();
   }
 
@@ -1176,7 +1184,8 @@ const M = {
       while (!S.over && S.turn < maxTurns) {
         let best = -1, bs = -Infinity;
         for (let c = 0; c < C; c++) {
-          if (colFull(c)) continue;
+          if (!canDrop(c)) continue;
+          if (topMerge(c)) { if (bs < 50) { bs = 50; best = c; } continue; }   // 꽉 찬 줄 위 합병은 늘 좋은 수
           let r = H - 1; while (S.grid[r][c]) r--;
           let sc = Math.random() * (1 - skill) * 12 - (H - r) * 0.2;
           for (const [rr, cc] of NBR(r, c)) {
