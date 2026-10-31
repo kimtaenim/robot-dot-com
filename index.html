@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#56636F">
 <title>ROBOT-DOT-COM 로봇닷컴</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rye&family=Sunflower:wght@700&family=Gowun+Dodum&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -162,8 +166,8 @@
   .ball.held { opacity: .95; transition: translate .08s ease-out; z-index: 5; }
   /* 사각 칸 뱃지 : 공과 같은 광택·테두리, 모서리만 둥근 사각 */
   /* 육각 뱃지 : 바깥 = 테두리색, 안쪽 육각 = 빛 받는 볼록면 */
-  .ball { border-radius: 0; border: none; transition: translate .13s ease-in; background: var(--c3); box-shadow: none; }
-  .ball .face { inset: 6%; background: radial-gradient(circle at 36% 30%, rgba(255,255,255,.85) 0%, var(--c) 26%, var(--c2) 100%); }
+  .ball { border-radius: 0; border: none; transition: translate .13s ease-in; background: var(--rim, var(--c3)); box-shadow: none; }
+  .ball .face { inset: 4.5%; background: radial-gradient(circle at 36% 30%, rgba(255,255,255,.85) 0%, var(--c) 26%, var(--c2) 100%); }
   .ball .face::before { display: none; }
   .st-uni .face { background: none; }
   .ball::after { left: 22%; top: 9%; width: 42%; height: 22%; }
@@ -328,7 +332,9 @@
 </div>
 
 <script>
-// 시제품 수치표 (확정되면 config.js로 옮김)
+// 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
+const BUILD_V = '2026.10.31-1';
+// 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
   rows: 6,                 // 높이 (?h=)
@@ -434,12 +440,13 @@ const M = {
     return {
       c: `hsl(${type.hue} ${sat}% ${L}%)`,
       c2: `hsl(${type.hue} ${Math.min(100, sat + 10)}% ${Math.round(L * 0.72)}%)`,
-      c3: `hsl(${type.hue} ${Math.min(100, sat + 12)}% ${Math.round(L * 0.45)}%)`
+      c3: `hsl(${type.hue} ${Math.min(100, sat + 12)}% ${Math.round(L * 0.45)}%)`,
+      rim: `hsl(${type.hue} ${sat}% ${Math.round(L * 0.66)}%)`   // 육각 테두리 : 너무 진하지 않게
     };
   }
   function applyTone(el, t) {
     const tn = toneOf(t.type, t.stage);
-    for (const k of ['c', 'c2', 'c3']) tn ? el.style.setProperty('--' + k, tn[k]) : el.style.removeProperty('--' + k);
+    for (const k of ['c', 'c2', 'c3', 'rim']) tn ? el.style.setProperty('--' + k, tn[k]) : el.style.removeProperty('--' + k);
   }
   const valueOf = (stage, type) => Math.round(S.stages[stage].value * type.grade);
   const value = t => valueOf(t.stage, t.type);
@@ -521,6 +528,9 @@ const M = {
     if (SIM) return;
     tileEl(S.cur).classList.add('held');
     aim(S.col);
+    paintNext();
+  }
+  function paintNext() {
     const nb = $('nextBall');
     nb.innerHTML = '';
     const mini = document.createElement('div');
@@ -638,6 +648,7 @@ const M = {
     S.ipos++;
     if (!S.firstIpo) S.firstIpo = S.turn;
     S.over = true; S.cleared = true;
+    save();
     if (SIM) return;
     keep.el.classList.add('gone');
     setTimeout(() => keep.el.remove(), 200);
@@ -659,12 +670,56 @@ const M = {
     setTimeout(() => queueCard('end', keep.type, showClear), 1200);
   }
 
-  // 행동 뒤 : 적자가 한도를 넘으면 재정 위기, 모든 줄이 꽉 차면 자리 위기
+  // 행동 뒤 : 적자가 한도를 넘으면 재정 위기, 모든 줄이 꽉 차면 자리 위기. 끝나면 판 저장.
   async function settle() {
     paintHUD();
     if (S.over) return;
     if (S.cash < -M.crisisAt) await fireSale();
     else if (allFull()) await overflowSell();
+    save();
+  }
+
+  // ---------- 판 저장 : 열면 이어서 ----------
+  const SAVE_KEY = 'rdc.save';
+  const pack = t => t && [t.type.key, t.stage];
+  function save() {
+    if (SIM) return;
+    const data = {
+      v: 1, level: S.level, cash: S.cash, turn: S.turn, dumps: S.dumps, ipos: S.ipos, cleared: S.cleared,
+      seen: S.seen, types: S.types.map(t => t.key), H, nextId: S.nextId,
+      grid: tiles().map(t => [t.c, t.r, t.type.key, t.stage]), cur: pack(S.cur), next: pack(S.next)
+    };
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+  function load() {
+    let d;
+    try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { d = null; }
+    if (!d || d.v !== 1 || !d.cur) return false;
+    const typeOf = k => M.types.find(t => t.key === k);
+    if (d.types.some(k => !typeOf(k))) return false;
+    S.level = d.level; S.cash = d.cash; S.turn = d.turn; S.dumps = d.dumps || 0; S.ipos = d.ipos || 0;
+    S.seen = d.seen; S.nextId = d.nextId || 1; S.minCash = S.cash;
+    S.over = false; S.cleared = false; S.crisis = false; S.busy = false; S.chain = 0; S.col = Math.floor(C / 2);
+    S.stages = LV().ladder.map(key => ({ key, ...M.stageDefs[key] }));
+    S.top = S.stages.length - 1;
+    S.types = d.types.map(typeOf);
+    H = Math.max(5, Math.min(M.rows, d.H || M.rows));
+    S.grid = Array.from({ length: H }, () => Array(C).fill(null));
+    for (const [c, r, k, st] of d.grid) if (r < H && c < C) S.grid[r][c] = { id: S.nextId++, type: typeOf(k), stage: st, c, r };
+    const unpack = p => ({ id: S.nextId++, type: typeOf(p[0]), stage: p[1] });
+    S.cur = unpack(d.cur); S.next = d.next ? unpack(d.next) : newTile();
+    buildBoard();
+    $('over').classList.add('hide');
+    // 레벨을 깬 채로 닫았으면 다음 레벨부터
+    if (d.cleared) { S.level++; S.cur = null; S.next = null; startLevel(); }
+    else { spawnKeep(); paintHUD(); }
+    return true;
+  }
+  // 저장해 둔 들고 있는 회사·다음 회사를 그대로 보여 줌
+  function spawnKeep() {
+    tileEl(S.cur).classList.add('held');
+    aim(S.col);
+    paintNext();
   }
 
   // 회사 하나를 팖 (rate : 몸값 대비 받는 비율)
@@ -765,6 +820,7 @@ const M = {
     }
     spawn();
     paintHUD();
+    save();
     if (!SIM) { if (menuOpen) pendingStart = true; else setTimeout(() => queueCard('start', S.types[rnd(S.types.length)]), 300); }
   }
 
@@ -1151,7 +1207,7 @@ const M = {
   // 미리보기 칸 : 로봇 종류 색조 × 단계 명도
   function demo(typeKey, stageKey, size = 58, extra = '') {
     const ty = M.types.find(t => t.key === typeKey), sh = M.shade[stageKey];
-    const vars = sh ? `--c:hsl(${ty.hue} ${sh[1] * ty.sat}% ${sh[0]}%);--c2:hsl(${ty.hue} ${Math.min(100, sh[1] * ty.sat + 10)}% ${Math.round(sh[0] * 0.72)}%);--c3:hsl(${ty.hue} ${Math.min(100, sh[1] * ty.sat + 12)}% ${Math.round(sh[0] * 0.45)}%);` : '';
+    const vars = sh ? `--c:hsl(${ty.hue} ${sh[1] * ty.sat}% ${sh[0]}%);--c2:hsl(${ty.hue} ${Math.min(100, sh[1] * ty.sat + 10)}% ${Math.round(sh[0] * 0.72)}%);--c3:hsl(${ty.hue} ${Math.min(100, sh[1] * ty.sat + 12)}% ${Math.round(sh[0] * 0.45)}%);--rim:hsl(${ty.hue} ${sh[1] * ty.sat}% ${Math.round(sh[0] * 0.66)}%);` : '';
     return `<div class="ball st-${stageKey} ${extra}" style="${vars}width:${size}px;height:${size}px">${faceHTML(ty.tile, stageKey, size)}</div>`;
   }
   const TUT = [
@@ -1187,8 +1243,22 @@ const M = {
   $('tSkip').addEventListener('click', closeMenu);
 
   paintSound();
-  newGame();
+  if (load()) $('mStart').textContent = `이어서 하기 (레벨 ${S.level})`;
+  else newGame();
   S.paused = true;
+
+  // 새 버전이 올라오면 저절로 새로고침 (Robot Rush와 같은 방식)
+  (function checkNewVersion() {
+    if (!/github\.io$/.test(location.hostname)) return;
+    fetch(location.pathname + '?check=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => {
+      const m = t.match(/BUILD_V = '([^']+)'/);
+      if (!m || m[1] === BUILD_V) return;
+      let tried = null; try { tried = sessionStorage.getItem('rdc.reloadTo'); } catch (e) {}
+      if (tried === m[1]) return;   // 이미 한 번 시도한 버전이면 다시 새로고침하지 않음
+      try { sessionStorage.setItem('rdc.reloadTo', m[1]); } catch (e) {}
+      location.replace(location.pathname + '?b=' + m[1]);
+    }).catch(() => {});
+  })();
 })();
 </script>
 </body>

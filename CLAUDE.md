@@ -44,7 +44,7 @@
 - 글꼴 : Rye(영문 제목), Sunflower 700(한글 제목), Gowun Dodum(본문), IBM Plex Mono(숫자). Google Fonts.
 - 배경 #56636F, HUD 글자 #F2F5F7.
 - 제목 : ★ROBOT-DOT-COM★ (한글 부제 로봇닷컴). Robot Rush의 ★ROBOT RU$H★ 양식. 저장소명 robot-dot-com, 주소 kimtaenim.github.io/robot-dot-com.
-- 회사 칸 : 육각 입체 뱃지(바깥 육각 = 테두리색, 안쪽 육각 = 빛 받는 볼록면, 광택). 색은 토널 셰이드 : 로봇 종류마다 색조 하나(협동로봇 블루, AMR 에메랄드, 4족보행 마룬, 휴머노이드 보라), 단계가 오를수록 채도↑ 명도↓(창업 거의 흰빛 → 시리즈C 거의 검은빛). 유니콘은 빨강에서 보라까지 무지개 띠가 끊김 없이 흐르고 별이 반짝이며 금테.
+- 회사 칸 : 육각 입체 뱃지(바깥 육각 = 테두리, 안쪽 육각 = 빛 받는 볼록면, 광택). 테두리는 너무 진하지 않게(그 단계 명도의 66%, 두께 4.5%). 색은 토널 셰이드 : 로봇 종류마다 색조 하나(협동로봇 블루, AMR 에메랄드, 4족보행 마룬, 휴머노이드 보라), 단계가 오를수록 채도↑ 명도↓(창업 거의 흰빛 → 시리즈C 거의 검은빛). 유니콘은 빨강에서 보라까지 무지개 띠가 끊김 없이 흐르고 별이 반짝이며 금테.
 
 ## 파일 구조
 ```
@@ -58,11 +58,13 @@ hex.html            옛 헥사 증식 시제품 (창업가 4명·땅따먹기). 
 balls.html          공(물리) 시제품
 merge.html, merge-hex.html  밀기·끌어 놓기 합치기 시제품
 drop.html           index.html로 넘겨 주는 옛 주소
+manifest.webmanifest, icons/  PWA
 README.md
 ```
 
-## 남은 일
-- localStorage에 판 상태 저장(열면 이어서), PWA manifest(Robot Rush와 같은 방식), 새 버전 자동 새로고침.
+## 저장·PWA
+- 판 저장 : 떨어뜨릴 때마다·레벨 시작·상장 때 localStorage(rdc.save)에 저장. 다시 열면 시작 창 첫 버튼이 "이어서 하기 (레벨 N)". 레벨을 깬 채로 닫았으면 다음 레벨부터. "새 판"은 처음부터.
+- PWA : manifest.webmanifest + icons/(무지개 육각 뱃지에 휴머노이드). 서비스 워커 없음. 새 버전 자동 새로고침은 Robot Rush와 같은 방식 : 올릴 때마다 index.html의 BUILD_V를 바꾼다.
 - 수치는 index.html의 M에서 조정 (levels, stageDefs, shade, crisisAt 등).
 
 ## 하지 말 것
