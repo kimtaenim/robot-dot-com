@@ -161,10 +161,10 @@
   <div id="title">★ROBOT-DOT-COM★</div>
   <div id="subtitle">로봇닷컴 : 헥사 합치기 시제품</div>
   <div id="stats">
+    <div class="stat"><span>레벨</span><b id="sLevel">1</b></div>
     <div class="stat"><span>턴</span><b id="sTurn">0</b></div>
     <div class="stat cash" id="sCashBox"><span>지갑</span><b id="sCash">0</b></div>
     <div class="stat"><span>판 몸값</span><b id="sBoard">0</b></div>
-    <div class="stat"><span>상장</span><b id="sIpo">0</b></div>
   </div>
 </div>
 
@@ -199,8 +199,8 @@
 // 시제품 수치표 (확정되면 config.js로 옮김)
 const M = {
   radius: 2,               // 가운데에서 2칸 반경의 육각 판 (19칸, 가운데는 신사업 칸). ?r=3 이면 37칸
-  turns: 100,              // 판 길이 = 신사업 칸에서 나오는 새 회사 수
-  typesPerGame: 4,         // 한 판에 나오는 로봇 종류 수 (아래 종류 중 무작위, 4면 전부). ?t=
+  turns: Infinity,         // 턴 제한 없음. 상장하면 그 레벨을 깸 (시험용 ?n=)
+  levelTypes: [2, 2, 3],   // 레벨별 로봇 종류 수 (마지막 값이 이후 레벨에 계속). 덜 나온 종류부터 골라 4종을 다 만남. ?t= 로 고정
   seedChance: 0.15,        // 새 회사가 시드 단계로 나올 확률
   // 합병 규칙 : 'path' 빈칸으로 이어져 있으면 합병(가로막히지 않으면 됨), 'adj' 바로 옆만(?adj=1), 'any' 어디서든(?any=1)
   rule: 'path',
@@ -216,7 +216,7 @@ const M = {
     { name: '유니콘',  value: 1000 }
   ],
   ipoMul: 5,               // 상장 대금 = 유니콘 몸값 × 이 배수 (유니콘 둘 합쳐 상장이면 × 2)
-  ipoOnUnicorn: false,     // true면 유니콘이 되는 순간 상장 (?ipo=1). false면 유니콘 둘을 합쳐야 상장
+  ipoOnUnicorn: true,      // true면 유니콘이 되는 순간 상장. false면 유니콘 둘을 합쳐야 상장 (?ipo=0)
   dumpRate: 0.5,           // 손해 매각 = 몸값의 이 비율. 판이 끝날 때 남은 회사도 이 비율로 계산
   types: [
     { key: 'arm',  name: '협동로봇',   tile: 'robot-cobot', grade: 1.0 },
@@ -230,7 +230,7 @@ const M = {
   // 시험용 : ?r=2 판 반경, ?t=2 로봇 종류 수, ?adj=1 옆끼리만 합병
   const qs = new URLSearchParams(location.search);
   if (qs.get('r')) M.radius = +qs.get('r');
-  if (qs.get('t')) M.typesPerGame = +qs.get('t');
+  if (qs.get('t')) M.levelTypes = [+qs.get('t')];
   if (qs.get('adj') === '1') M.rule = 'adj';
   if (qs.get('any') === '1') M.rule = 'any';
   if (qs.get('n')) M.turns = +qs.get('n');
@@ -433,7 +433,22 @@ const M = {
       floatAt(b, '+' + v);
       banner(`${b.type.name} 상장! +${v}`, true);
       paintHall();
+      levelClear(b, v);
     }
+  }
+
+  // 상장하면 그 레벨을 깸 : 지갑·명예의 전당은 다음 레벨로 이어짐
+  function levelClear(b, v) {
+    S.over = true;
+    S.cleared = true;
+    clearPick();
+    setTimeout(() => {
+      $('overTitle').textContent = `레벨 ${S.level} 클리어!`;
+      $('overScore').textContent = '+' + v;
+      $('overText').innerHTML = `${b.type.name} 회사 상장 · ${S.turn}턴 · 손해 매각 ${S.dumps}번<br>지갑 ${S.cash} (다음 레벨로 이어짐)`;
+      $('bRestart').textContent = `레벨 ${S.level + 1} 시작`;
+      $('over').classList.remove('hide');
+    }, 1400);
   }
 
   // 손해 매각 : 놓을 곳도 합칠 곳도 없을 때(반드시 팔아야 함). 팔 회사를 골라 반값에.
@@ -505,11 +520,11 @@ const M = {
 
   function paintHUD() {
     if (SIM) return;
-    $('sTurn').textContent = `${S.turn}/${M.turns}`;
+    $('sTurn').textContent = isFinite(M.turns) ? `${S.turn}/${M.turns}` : S.turn;
     $('sCash').textContent = S.cash;
     $('sCashBox').classList.toggle('red', S.cash < 0);
     $('sBoard').textContent = boardValue();
-    $('sIpo').textContent = S.ipos;
+    $('sLevel').textContent = S.level;
   }
   function paintHall() {
     $('hallList').innerHTML = S.hall.length
@@ -558,10 +573,21 @@ const M = {
   let SIM = false;
   function newGame(sim) {
     SIM = !!sim;
+    S.cash = M.startCash; S.ipos = 0; S.hall = []; S.earned = 0; S.minCash = M.startCash; S.firstIpo = 0;
+    S.level = 1;
+    S.seen = Object.fromEntries(M.types.map(t => [t.key, 0]));
+    startLevel();
+  }
+
+  // 레벨 시작 : 판을 비우고, 덜 나온 로봇 종류부터 골라 씀
+  function startLevel() {
     S.grid = new Map();
-    S.cash = M.startCash; S.turn = 0; S.over = false; S.ipos = 0; S.dumps = 0; S.hall = []; S.dumping = false; S.sel = null; S.earned = 0; S.minCash = M.startCash; S.firstIpo = 0;
-    S.types = shuffle([...M.types]).slice(0, M.typesPerGame);
+    S.turn = 0; S.over = false; S.cleared = false; S.dumps = 0; S.dumping = false; S.sel = null;
+    const k = M.levelTypes[Math.min(S.level - 1, M.levelTypes.length - 1)];
+    S.types = shuffle([...M.types]).sort((a, b) => S.seen[a.key] - S.seen[b.key]).slice(0, k);
+    for (const t of S.types) S.seen[t.key]++;
     if (!SIM) {
+      $('bRestart').textContent = '다시 창업';
       $('legendTypes').innerHTML = S.types.map(t => `<span><img src="assets/${t.tile}-a.png" alt="">${t.name} ×${t.grade}</span>`).join('');
       $('hint').textContent = {
         path: '신사업 칸의 새 회사를 빈칸에 놓으면 돈이 나가고, 같은 회사끼리 합치면 돈이 들어와요. 다른 회사가 가로막으면 못 가요.',
@@ -643,14 +669,18 @@ const M = {
   boardEl.addEventListener('pointerup', e => endDrag(e, false));
   boardEl.addEventListener('pointercancel', e => endDrag(e, true));
 
-  $('bNew').addEventListener('click', () => { if (S.turn === 0 || S.over || confirm('지금 판을 버리고 새로 시작할까?')) newGame(); });
-  $('bRestart').addEventListener('click', () => newGame());
+  $('bNew').addEventListener('click', () => { if ((S.turn === 0 && S.level === 1) || confirm('레벨 1부터 새로 시작할까?')) newGame(); });
+  $('bRestart').addEventListener('click', () => {
+    if (S.cleared) { S.level++; startLevel(); }
+    else newGame();
+  });
   window.addEventListener('resize', buildBoard);
 
   // 시험용 봇 : 화면 없이 한 판을 빠르게 돌림. window.simulate(판 수, 'path' | 'adj' | 'any')
   window.simulate = (games, rule) => {
-    const keep = M.rule;
+    const keep = M.rule, keepTurns = M.turns;
     M.rule = rule === true ? 'adj' : (rule || M.rule);
+    if (!isFinite(M.turns)) M.turns = 300;
     const out = [];
     for (let g = 0; g < games; g++) {
       newGame(true);
@@ -692,6 +722,7 @@ const M = {
       out.push({ score: score(), ipos: S.ipos, dumps: S.dumps, cash: S.cash, earned: S.earned, minCash: S.minCash, firstIpo: S.firstIpo });
     }
     M.rule = keep;
+    M.turns = keepTurns;
     newGame();
     return out;
   };
