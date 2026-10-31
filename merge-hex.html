@@ -60,7 +60,8 @@
   .tile.drag { transition: none; z-index: 10; filter: drop-shadow(0 6px 10px rgba(0,0,0,.5)); scale: 1.08; }
   .tile.can { animation: canGlow .5s ease-in-out infinite alternate; }
   @keyframes canGlow { from { filter: brightness(1); } to { filter: brightness(1.35) drop-shadow(0 0 6px #FFE27A); } }
-  .slot.over { background: #6C7A87; }
+  .slot.reach { background: #5D6B78; }
+  .slot.over { background: #7C8A97; }
   /* 신사업 칸 : 새 회사가 늘 여기서 나옴 */
   .slot.hub { background: #2F6F8F; display: flex; align-items: center; justify-content: center; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 12px; color: #CDEBF7; }
   .tile.incoming { animation: appear .25s ease-out, incoming 1s ease-in-out .25s infinite alternate; }
@@ -201,7 +202,8 @@ const M = {
   turns: 100,              // 판 길이 = 신사업 칸에서 나오는 새 회사 수
   typesPerGame: 4,         // 한 판에 나오는 로봇 종류 수 (아래 종류 중 무작위, 4면 전부). ?t=
   seedChance: 0.15,        // 새 회사가 시드 단계로 나올 확률
-  adjacentOnly: false,     // true면 바로 옆 칸끼리만 합병 (?adj=1)
+  // 합병 규칙 : 'path' 빈칸으로 이어져 있으면 합병(가로막히지 않으면 됨), 'adj' 바로 옆만(?adj=1), 'any' 어디서든(?any=1)
+  rule: 'path',
   startCash: 100,          // 시작 지갑
   // 단계 : 같은 로봇·같은 단계 둘을 합치면 한 단계 위. 유니콘 둘을 합치면 상장.
   // 놓을 때 그 회사 몸값만큼 돈이 나가고, 합병하면 (새 몸값 - 두 회사 몸값)만큼 들어옴.
@@ -229,7 +231,8 @@ const M = {
   const qs = new URLSearchParams(location.search);
   if (qs.get('r')) M.radius = +qs.get('r');
   if (qs.get('t')) M.typesPerGame = +qs.get('t');
-  if (qs.get('adj')) M.adjacentOnly = qs.get('adj') === '1';
+  if (qs.get('adj') === '1') M.rule = 'adj';
+  if (qs.get('any') === '1') M.rule = 'any';
   if (qs.get('n')) M.turns = +qs.get('n');
   if (qs.get('seed')) M.seedChance = +qs.get('seed');
   if (qs.get('ipo')) M.ipoOnUnicorn = qs.get('ipo') === '1';
@@ -326,9 +329,28 @@ const M = {
   const adjacent = (a, b) => DIRS.some(([dq, dr]) => a.q + dq === b.q && a.r + dr === b.r);
   const canMerge = (a, b) => a && b && a !== b && a.type === b.type && a.stage === b.stage;
   // a를 b 위에 놓아 합병할 수 있나. 신사업 칸으로는 합병하지 않음(새 회사를 끌어서 합침).
-  const canDropMerge = (a, b) => canMerge(a, b) && !isHub(b.q, b.r) && (!M.adjacentOnly || adjacent(a, b));
+  // a에서 빈칸만 밟고 갈 수 있는 칸들 (신사업 칸·다른 회사는 못 지나감)
+  function reachSet(a) {
+    const seen = new Set(), q = [[a.q, a.r]];
+    while (q.length) {
+      const [x, y] = q.pop();
+      for (const [dq, dr] of DIRS) {
+        const nx = x + dq, ny = y + dr, k = key(nx, ny);
+        if (seen.has(k) || !CELLS.some(([cq, cr]) => cq === nx && cr === ny) || isHub(nx, ny) || at(nx, ny)) continue;
+        seen.add(k);
+        q.push([nx, ny]);
+      }
+    }
+    return seen;
+  }
+  // a가 b에 닿을 수 있나 : 바로 옆이거나, 빈칸 길로 b 옆까지 갈 수 있으면
+  const reaches = (a, b, rs = reachSet(a)) => adjacent(a, b) || DIRS.some(([dq, dr]) => rs.has(key(b.q + dq, b.r + dr)));
+  const canDropMerge = (a, b) => canMerge(a, b) && !isHub(b.q, b.r) &&
+    (M.rule === 'any' || (M.rule === 'adj' ? adjacent(a, b) : reaches(a, b)));
+  // 새 회사를 놓을 수 있는 빈칸
+  const placeable = t => M.rule === 'path' ? empties().filter(([q, r]) => reachSet(t).has(key(q, r))) : empties();
   // 돈이 모자라도 놓을 수 있음 (적자)
-  const canPlace = t => isHub(t.q, t.r) && empties().length > 0;
+  const canPlace = t => isHub(t.q, t.r) && placeable(t).length > 0;
 
   // 새 회사 : 늘 신사업 칸에서
   function spawnIncoming() {
@@ -541,9 +563,11 @@ const M = {
     S.types = shuffle([...M.types]).slice(0, M.typesPerGame);
     if (!SIM) {
       $('legendTypes').innerHTML = S.types.map(t => `<span><img src="assets/${t.tile}-a.png" alt="">${t.name} ×${t.grade}</span>`).join('');
-      $('hint').textContent = M.adjacentOnly
-        ? '신사업 칸의 새 회사를 빈칸에 놓으면 돈이 나가고, 바로 옆 같은 회사끼리 합치면 돈이 들어와요.'
-        : '신사업 칸의 새 회사를 빈칸에 놓으면 돈이 나가고, 같은 회사끼리 합치면 돈이 들어와요.';
+      $('hint').textContent = {
+        path: '신사업 칸의 새 회사를 빈칸에 놓으면 돈이 나가고, 같은 회사끼리 합치면 돈이 들어와요. 다른 회사가 가로막으면 못 가요.',
+        adj: '신사업 칸의 새 회사를 빈칸에 놓으면 돈이 나가고, 바로 옆 같은 회사끼리 합치면 돈이 들어와요.',
+        any: '신사업 칸의 새 회사를 빈칸에 놓으면 돈이 나가고, 같은 회사끼리 합치면 돈이 들어와요.'
+      }[M.rule];
       $('over').classList.add('hide');
       $('sellSheet').classList.add('hide');
       buildBoard();
@@ -588,6 +612,7 @@ const M = {
       drag.moved = true;
       drag.t.el.classList.add('drag');
       for (const o of boardTiles()) if (canDropMerge(drag.t, o)) o.el.classList.add('can');
+      if (isHub(drag.t.q, drag.t.r)) for (const [q, r] of placeable(drag.t)) slotEl(q, r).classList.add('reach');
     }
     drag.t.el.style.translate = `${drag.x + dx}px ${drag.y + dy}px`;
     clearOver();
@@ -601,16 +626,18 @@ const M = {
     drag = null;
     clearOver();
     for (const el of boardEl.querySelectorAll('.tile.can')) el.classList.remove('can');
+    for (const el of boardEl.querySelectorAll('.slot.reach')) el.classList.remove('reach');
     d.t.el.classList.remove('drag');
     if (!d.moved) { if (S.dumping && !cancel) pickDump(d.t); return; }
     if (S.dumping === 'forced') return;
     const c = cancel ? null : cellAt(e.clientX, e.clientY);
     const o = c && at(...c);
     if (c && !o && !isHub(...c) && isHub(d.t.q, d.t.r)) {
-      placeTo(d.t, ...c); return;
+      if (placeable(d.t).some(([q, r]) => q === c[0] && r === c[1])) { placeTo(d.t, ...c); return; }
+      banner('다른 회사에 가로막혀 못 간다');
     } else if (o && canDropMerge(d.t, o)) { mergeInto(d.t, o); return; }
     else if (c && !o && !isHub(d.t.q, d.t.r)) banner('이미 놓은 회사는 옮길 수 없다');
-    else if (o && o !== d.t && M.adjacentOnly && canMerge(d.t, o)) banner('바로 옆 칸끼리만 합칠 수 있다');
+    else if (o && o !== d.t && canMerge(d.t, o)) banner(M.rule === 'adj' ? '바로 옆 칸끼리만 합칠 수 있다' : '다른 회사에 가로막혀 못 간다');
     place(d.t);
   }
   boardEl.addEventListener('pointerup', e => endDrag(e, false));
@@ -620,10 +647,10 @@ const M = {
   $('bRestart').addEventListener('click', () => newGame());
   window.addEventListener('resize', buildBoard);
 
-  // 시험용 봇 : 화면 없이 한 판을 빠르게 돌림. window.simulate(판 수, 옆끼리만?)
-  window.simulate = (games, adj) => {
-    const keep = M.adjacentOnly;
-    M.adjacentOnly = !!adj;
+  // 시험용 봇 : 화면 없이 한 판을 빠르게 돌림. window.simulate(판 수, 'path' | 'adj' | 'any')
+  window.simulate = (games, rule) => {
+    const keep = M.rule;
+    M.rule = rule === true ? 'adj' : (rule || M.rule);
     const out = [];
     for (let g = 0; g < games; g++) {
       newGame(true);
@@ -647,7 +674,7 @@ const M = {
         if (tgt) { mergeInto(h, tgt); continue; }
         // 놓기 : 같은 회사 옆 > 한 단계 위 같은 종류 옆 > 같은 종류 옆, 다른 종류 옆은 피함
         let best = null, bs = -Infinity;
-        for (const [q, r] of empties()) {
+        for (const [q, r] of placeable(h)) {
           let sc = Math.random();
           for (const [dq, dr] of DIRS) {
             const o = at(q + dq, r + dr);
@@ -664,7 +691,7 @@ const M = {
       }
       out.push({ score: score(), ipos: S.ipos, dumps: S.dumps, cash: S.cash, earned: S.earned, minCash: S.minCash, firstIpo: S.firstIpo });
     }
-    M.adjacentOnly = keep;
+    M.rule = keep;
     newGame();
     return out;
   };
