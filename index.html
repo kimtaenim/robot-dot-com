@@ -306,7 +306,7 @@
   <div id="box"><div id="dropRow"></div><div id="debt"></div><div id="boxFlash"></div></div>
 </div>
 
-<div id="actions"><button id="bDex">도감</button><button id="bNew">새 판</button></div>
+<div id="actions"><button id="bDex">도감</button><button id="bNew">처음부터</button></div>
 <div id="menu"><div class="menuBox">
   <div class="mt">★ROBOT-DOT-COM★</div>
   <div class="ms">로봇닷컴</div>
@@ -352,7 +352,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.10.31-9';
+const BUILD_V = '2026.10.31-10';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -380,7 +380,7 @@ const M = {
     ipo:   { name: '상장',    value: 1000, ink: '#FFE27A' }
   },
   ipoMul: 5,               // 상장 대금 = 상장 단계 몸값 × 이 배수
-  dumpRate: 0.5,           // 자리 위기 매각 = 몸값의 이 비율
+  dumpRate: 0.5,           // 경영 위기 매각 = 몸값의 이 비율
   fireSaleRate: 0.3,       // 재정 위기 헐값 = 몸값의 이 비율
   types: [
     // hue·sat : 로봇 종류마다 색조 하나 (블루·에메랄드·마룬·보라). 단계가 오를수록 채도↑ 명도↓
@@ -697,12 +697,12 @@ const M = {
     setTimeout(() => queueCard('end', keep.type, showClear), 1200);
   }
 
-  // 행동 뒤 : 적자가 한도를 넘으면 재정 위기, 모든 줄이 꽉 차면 자리 위기. 끝나면 판 저장.
+  // 행동 뒤 : 적자가 한도를 넘으면 재정 위기, 모든 줄이 꽉 차면 경영 위기. 끝나면 판 저장.
   async function settle() {
     paintHUD();
     if (S.over) return;
     if (S.cash < -M.crisisAt) await fireSale();
-    else if (allFull() && ![...Array(C).keys()].some(topMerge)) await overflowSell();   // 맨 위에 합칠 수 있으면 자리 위기 아님
+    else if (allFull() && ![...Array(C).keys()].some(topMerge)) await overflowSell();   // 맨 위에 합칠 수 있으면 경영 위기 아님
     save();
   }
 
@@ -778,8 +778,8 @@ const M = {
     paintHUD();
   }
 
-  // 자리 위기 : 가장 비싼 회사부터 반값에, 떨어뜨릴 줄이 생길 때까지
-  const overflowSell = () => crisisFlow('자리 위기! 핵심 회사를 반값에 팔아 자리를 만듭니다', () => {
+  // 경영 위기 : 가장 비싼 회사부터 반값에, 떨어뜨릴 줄이 생길 때까지
+  const overflowSell = () => crisisFlow('경영 위기! 핵심 회사를 반값에 팔아 자리를 만듭니다', () => {
     if (!allFull()) return null;
     return tiles().sort((a, b) => value(b) - value(a))[0] || null;
   }, M.dumpRate, '넘침');
@@ -1271,7 +1271,7 @@ const M = {
     { t: '돈', v: () => `<span style="color:#F0426E">-10</span>${demo('legs', 'found', 54)}<span style="color:#1FA36B">+5</span>`,
       p: '회사를 떨어뜨릴 때는 그 몸값만큼 돈이 나가고, 합병하면 돈이 들어와요. 적자여도 계속할 수 있지만 너무 커지면 위험해요.' },
     { t: '위기', v: () => `${demo('legs', 'b', 58, 'firesale')}<span style="color:#C9443A">헐값!</span>`,
-      p: `적자가 ${M.crisisAt}을 넘으면 재정 위기, 판이 꽉 차면 자리 위기가 와요. 그러면 가장 비싼 회사부터 헐값에 팔려 나가요. 판을 넘치게 두지 마세요.` },
+      p: `적자가 ${M.crisisAt}을 넘으면 재정 위기, 판이 꽉 차면 경영 위기가 와요. 그러면 가장 비싼 회사부터 헐값에 팔려 나가요. 판을 넘치게 두지 마세요.` },
     { t: '실제 회사 카드', v: () => `<div style="width:64px;height:84px;border-radius:10px;border:3px solid #1E3F8F;background:#FBFCFF;display:flex;align-items:center;justify-content:center;font-size:30px">📜</div>`,
       p: '레벨을 시작하고 끝낼 때, 위기가 올 때 실제 로봇 회사의 이야기 카드를 받아요. 모은 카드는 아래 "도감"에서 다시 볼 수 있어요.' }
   ];
