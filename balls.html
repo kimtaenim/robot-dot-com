@@ -42,24 +42,32 @@
     border: 3px solid var(--c3);
     box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), inset 0 -6px 8px rgba(0,0,0,.22), 0 4px 0 var(--c3), 0 6px 8px rgba(0,0,0,.35);
   }
+  /* 도자기 접시 테두리 무늬 */
+  .ball::before {
+    content: ''; position: absolute; inset: 7%; border-radius: 50%;
+    border: 2px dotted var(--ink); opacity: .7; pointer-events: none; z-index: 1;
+  }
   .ball::after {
     content: ''; position: absolute; left: 16%; top: 7%; width: 46%; height: 26%; border-radius: 50%;
     background: linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,0)); transform: rotate(-24deg); pointer-events: none; z-index: 2;
   }
   .ball .art { position: absolute; z-index: 1; left: 15%; top: 10%; width: 70%; height: 70%; }
-  .ball .stg { position: absolute; z-index: 3; left: 50%; bottom: 6%; transform: translateX(-50%); box-shadow: 0 1px 2px rgba(0,0,0,.25); font-family: 'Sunflower', sans-serif; font-weight: 700; color: #1E252B; background: rgba(255,255,255,.75); border-radius: 5px; padding: 0 4px; line-height: 1.3; white-space: nowrap; }
+  .ball .stg { position: absolute; z-index: 3; left: 50%; bottom: 6%; transform: translateX(-50%); box-shadow: 0 1px 2px rgba(0,0,0,.25); font-family: 'Sunflower', sans-serif; font-weight: 700; color: #1C3577; background: rgba(255,255,255,.9); border-radius: 5px; padding: 0 4px; line-height: 1.3; white-space: nowrap; }
   .ball.held { opacity: .92; }
   .ball.pop { animation: pop .25s ease-out; }
   .ball.pick { animation: pickGlow .55s ease-in-out infinite alternate; }
   .ball.sel { filter: brightness(1.15) drop-shadow(0 0 8px #FFE27A); }
   @keyframes pop { 0% { scale: .7; } 60% { scale: 1.15; } 100% { scale: 1; } }
   @keyframes pickGlow { from { filter: brightness(1); } to { filter: brightness(1.2) drop-shadow(0 0 6px #FF8A80); } }
-  .s0 { --c: #C9D3DB; --c2: #8E9BA6; --c3: #6E7A85; }
-  .s1 { --c: #9ED9F0; --c2: #4FA9CF; --c3: #2F7FA3; }
-  .s2 { --c: #8FE3C0; --c2: #3DB487; --c3: #23855F; }
-  .s3 { --c: #FFD27A; --c2: #E8A23A; --c3: #B87518; }
-  /* 유니콘 : 무지개 볼록면 + 금테 */
-  .s4 { --c3: #C8962A; background: radial-gradient(circle at 34% 28%, #fff 0%, #FFB3E6 22%, #C9A2FF 50%, #7FD8FF 78%, #5AA8E0 100%); border-color: #E8B94A; }
+  /* Delft 블루 : 창업은 하얀 도자기, 단계가 오를수록 코발트가 짙어짐. 유니콘은 무지개 */
+  .s0 { --c: #FFFFFF; --c2: #DCE5F3; --c3: #2B4C9B; --ink: #2B4C9B; }
+  .s1 { --c: #E6EEFA; --c2: #B4C8EC; --c3: #24418A; --ink: #24418A; }
+  .s2 { --c: #9FB8E8; --c2: #5577C4; --c3: #1C3577; --ink: #F4F7FF; }
+  .s3 { --c: #4A6FC4; --c2: #1E3C8C; --c3: #122660; --ink: #F4F7FF; }
+  .s4 { --c3: #C8962A; --ink: #FFFFFF; background: radial-gradient(circle at 34% 28%, #fff 0%, #FFB3E6 22%, #C9A2FF 50%, #7FD8FF 78%, #5AA8E0 100%); border-color: #E8B94A; }
+  /* 로봇 그림 : 하얀 바탕에는 파란 붓그림, 짙은 바탕에는 하얀 유약 그림 */
+  .s0 .art img, .s1 .art img { filter: grayscale(1) sepia(1) saturate(5) hue-rotate(175deg) brightness(.55) contrast(1.6); }
+  .s2 .art img, .s3 .art img { filter: grayscale(1) brightness(1.6) contrast(.9) drop-shadow(0 0 1px rgba(10, 25, 70, .6)); }
 
   .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .art.bob { transform-origin: 50% 85%; animation: artBob 1s ease-in-out infinite; animation-delay: var(--d, 0s); }
