@@ -213,7 +213,8 @@ const M = {
     { name: '시리즈C', value: 400 },
     { name: '유니콘',  value: 1000 }
   ],
-  ipoMul: 5,               // 상장 대금 = 유니콘 몸값 × 2 × 이 배수
+  ipoMul: 5,               // 상장 대금 = 유니콘 몸값 × 이 배수 (유니콘 둘 합쳐 상장이면 × 2)
+  ipoOnUnicorn: false,     // true면 유니콘이 되는 순간 상장 (?ipo=1). false면 유니콘 둘을 합쳐야 상장
   dumpRate: 0.5,           // 손해 매각 = 몸값의 이 비율. 판이 끝날 때 남은 회사도 이 비율로 계산
   types: [
     { key: 'arm',  name: '협동로봇',   tile: 'robot-cobot', grade: 1.0 },
@@ -229,6 +230,9 @@ const M = {
   if (qs.get('r')) M.radius = +qs.get('r');
   if (qs.get('t')) M.typesPerGame = +qs.get('t');
   if (qs.get('adj')) M.adjacentOnly = qs.get('adj') === '1';
+  if (qs.get('ipo')) M.ipoOnUnicorn = qs.get('ipo') === '1';
+  // ?st=5 : 시리즈C 빼기, ?st=4 : 시리즈B·C 빼기
+  if (qs.get('st')) { const keep = +qs.get('st'); while (M.stages.length > keep) M.stages.splice(M.stages.length - 2, 1); }
 
   const RAD = M.radius;
   const $ = id => document.getElementById(id);
@@ -371,7 +375,9 @@ const M = {
     S.grid.delete(key(a.q, a.r));
     if (fromHub) S.turn++;
     if (b.stage === TOP) {
-      ipo(a, b);
+      ipo(a, b, valueOf(TOP, b.type) * 2 * M.ipoMul);
+    } else if (M.ipoOnUnicorn && b.stage + 1 === TOP) {
+      ipo(a, b, valueOf(TOP, b.type) * M.ipoMul);
     } else {
       const gain = valueOf(b.stage + 1, b.type) - 2 * value(b);
       b.stage++;
@@ -391,8 +397,7 @@ const M = {
   }
 
   // 상장 : 판에서 사라지고 명예의 전당으로
-  function ipo(a, b) {
-    const v = valueOf(TOP, b.type) * 2 * M.ipoMul;
+  function ipo(a, b, v) {
     S.cash += v;
     S.ipos++;
     S.grid.delete(key(b.q, b.r));
