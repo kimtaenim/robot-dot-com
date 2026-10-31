@@ -353,7 +353,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.10.31-11';
+const BUILD_V = '2026.10.31-12';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -974,8 +974,17 @@ const M = {
     if (sound.on) { sfx.unlock(); sfx.card(); }
   }
   const sfx = (() => {
-    let ac = null;
-    const ctx = () => { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } } if (ac.state !== 'running') { try { ac.resume().catch(() => {}); } catch (e) {} } return ac; };
+    // Robot Rush와 같은 방식 : 화면을 한 번 만지기 전에는 오디오를 만들지 않음(아이폰은 그 전 오디오를 막음)
+    let ac = null, touched = false, stale = false, silentEl = null;
+    const SILENT = 'data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+    function ctx() {
+      if (!sound.on || !touched) return null;
+      try {
+        if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+        if (ac.state !== 'running') ac.resume();
+        return ac;
+      } catch (e) { return null; }
+    }
     function tone(f, dur, type = 'sine', vol = 0.2, f2 = null, delay = 0) {
       if (!sound.on || SIM) return;
       const a = ctx(); if (!a) return;
@@ -986,25 +995,31 @@ const M = {
       o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
     }
     const NOTE = [523, 587, 659, 784, 880, 1047, 1175];
-    // 소리 길 열기 : 아이폰은 무음 스위치가 켜져 있으면 웹 소리를 막음.
-    //   최신 사파리는 소리 종류를 '재생'으로, 예전 사파리는 들리지 않는 짧은 소리를 한 번 틀어 재생 모드로 바꿈.
-    let unlocked = false;
-    const SILENT = 'data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAGAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
-    // 손을 댈 때마다 확인 : 앱을 내렸다 올리면 아이폰은 소리를 멈춤(interrupted)이라 다시 깨워야 함
+    // 소리 길 열기 : 무음 스위치를 우회하도록 소리 종류를 '재생'으로, 아주 짧은 무음 wav를 틀어 미디어 재생 상태로.
+    //   다른 앱에 다녀오면 아이폰은 오디오가 멈춰(interrupted) resume()해도 안 울리는 경우가 있어, 돌아온 뒤 첫 탭에서 새로 만듦
     function unlock() {
-      try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) {}
-      const a = ctx();
-      if (!a) return;
-      if (a.state !== 'running') {
-        try { a.resume().catch(() => {}); } catch (e) {}
-        try { const b = a.createBuffer(1, 1, 22050), src = a.createBufferSource(); src.buffer = b; src.connect(a.destination); src.start(0); } catch (e) {}
+      touched = true;
+      if (!sound.on || SIM) return;
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+      try {
+        if (!silentEl) { silentEl = new Audio(SILENT); silentEl.setAttribute('playsinline', ''); }
+        silentEl.play().catch(() => {});
+      } catch (e) {}
+      if (ac && (stale || ac.state === 'closed' || (ac.state !== 'running' && ac.state !== 'suspended'))) {
+        stale = false;
+        const old = ac; ac = null;
+        try { if (old.state !== 'closed') old.close().catch(() => {}); } catch (e) {}
       }
-      if (!unlocked || a.state !== 'running') {
-        unlocked = true;
-        try { const el = new Audio(SILENT); el.setAttribute('playsinline', ''); el.play().catch(() => {}); } catch (e) {}
-      }
+      try {
+        const a = ctx();
+        if (a) { const b = a.createBuffer(1, 1, 22050), src = a.createBufferSource(); src.buffer = b; src.connect(a.destination); src.start(0); }
+      } catch (e) {}
     }
-    ['pointerdown', 'touchend', 'keydown', 'click'].forEach(ev => document.addEventListener(ev, () => { if (sound.on && !SIM) unlock(); }, { capture: true, passive: true }));
+    // 브라우저가 '사용자 동작'으로 인정하는 이벤트에서 깨움 (pointerdown은 안드로이드 크롬이 인정하지 않음)
+    ['touchend', 'pointerup', 'mouseup', 'click', 'keydown'].forEach(ev => addEventListener(ev, unlock, { capture: true, passive: true }));
+    const away = () => { stale = true; try { if (ac && ac.state === 'running') ac.suspend().catch(() => {}); } catch (e) {} };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) away(); else if (ac && touched) ac.resume().catch(() => {}); });
+    addEventListener('pagehide', away);
     return {
       unlock,
       drop: () => tone(900, 0.05, 'triangle', 0.12, 500),
