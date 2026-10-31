@@ -16,7 +16,7 @@
     --empty: #66737F;
     --empty-line: #4A5662;
     --panel: #48535E;
-    --me: #F28C28;
+    --me: #1FA8E8;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; }
@@ -162,16 +162,6 @@
   .cover h1 { font-family: 'Rye', serif; font-weight: 400; font-size: 30px; }
   .cover h2 { font-family: 'Sunflower', sans-serif; font-size: 16px; opacity: .85; }
   .cover p { font-size: 14px; opacity: .85; margin: 6px 0 4px; }
-  #typeList { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 360px; }
-  .typeBtn {
-    display: flex; align-items: center; gap: 12px; padding: 8px 12px;
-    background: var(--panel); border: 2px solid transparent; border-radius: 12px; color: var(--fg);
-    text-align: left; font: inherit;
-  }
-  .typeBtn:active { border-color: var(--me); transform: scale(.98); }
-  .typeBtn .art { position: relative; width: 52px; height: 52px; flex: none; }
-  .typeBtn .nm { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 18px; }
-  .typeBtn .st { font-family: 'IBM Plex Mono', monospace; font-size: 11px; opacity: .8; margin-top: 2px; }
   #over { background: rgba(40, 47, 54, .92); }
   #over .big { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 26px; }
   #over button {
@@ -221,13 +211,6 @@
   <div class="how" id="shHow"></div>
   <div class="after" id="shAfter"></div>
   <div class="tip" id="shTip"></div>
-</div>
-
-<div id="pick" class="cover">
-  <h1>★ROBOT-DOT-COM★</h1>
-  <h2>로봇닷컴</h2>
-  <p>어떤 로봇 회사를 세울까?</p>
-  <div id="typeList"></div>
 </div>
 
 <div id="over" class="cover hide">
@@ -838,7 +821,7 @@
   });
   $('bRestart').addEventListener('click', newGame);
 
-  // 창업 : 내 회사는 판 가운데 근처, 경쟁사는 서로 멀리 떨어진 빈칸에 씨앗 1칸
+  // 이미 심은 씨앗들에서 가장 먼 빈칸
   function seedFar(seeds) {
     let bestD = -1, cand = [];
     for (let i = 0; i < N; i++) {
@@ -849,7 +832,8 @@
     return pick(cand);
   }
 
-  function found(type) {
+  // 창업 : 내 본사는 판 가운데 근처, AI는 서로 먼 빈칸. 회사 유형은 본사 칸의 로봇 시장을 따름.
+  function found() {
     const midC = (COLS - 1) / 2, midR = (ROWS - 1) / 2;
     const cand = [];
     for (let i = 0; i < N; i++) {
@@ -858,16 +842,15 @@
     const seed = pick(cand);
     S.owner[seed] = ME;
     const mk = (k, t, hq) => ({ id: k, ...C.founders[k], type: t, hq, alive: true, acc: 0, cash: C.economy.startCash, mood: 'normal' });
-    S.co = [mk(ME, type, seed)];
+    S.co = [mk(ME, S.seg[seed], seed)];
 
     const seeds = [seed];
     for (let k = 1; k < C.founders.length; k++) {
       const s = seedFar(seeds);
       seeds.push(s);
       S.owner[s] = k;
-      S.co.push(mk(k, pick(C.types), s));
+      S.co.push(mk(k, S.seg[s], s));
     }
-    $('pick').classList.add('hide');
     paint({ pop: new Set(seeds) });
   }
 
@@ -878,21 +861,7 @@
     makeSegments();
     buildBoard();
     $('over').classList.add('hide');
-    $('pick').classList.remove('hide');
-  }
-
-  // 유형 고르기 화면
-  function buildPick() {
-    const list = $('typeList');
-    for (const t of C.types) {
-      const b = document.createElement('button');
-      b.className = 'typeBtn';
-      b.innerHTML = artHTML(t.tile) +
-        `<div><div class="nm">${t.name}</div>` +
-        `<div class="st">속도 ${t.speed.toFixed(1)} · 매출 ${t.price} · 등급 ${t.grade.toFixed(1)} · 저항 ${t.resist}</div></div>`;
-      b.addEventListener('click', () => found(t));
-      list.appendChild(b);
-    }
+    found();
   }
 
   // 내 회사 색
@@ -900,9 +869,7 @@
   document.documentElement.style.setProperty('--me', meColor);
   $('sChip').style.background = meColor;
 
-  buildPick();
-  makeSegments();
-  buildBoard();
+  newGame();
   window.addEventListener('resize', () => { buildBoard(); });
 })();
 </script>

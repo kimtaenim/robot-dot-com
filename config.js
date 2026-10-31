@@ -20,10 +20,10 @@ window.CONFIG = {
   // 창업가 4명 : 0번이 나(검은 동그라미 me), 1-3번이 AI(Bosses of Our World 얼굴).
   // 표정 : normal 평소, win 이득(인수·빼앗기), hurt 손해(빼앗김), lose 먹힘·폐업
   founders: [
-    { name: '나',     color: '#F28C28', badge: 'me' },
-    { name: '머스크', color: '#0099FF', faces: { normal: 'musk/glance.webp', win: 'musk/smirk.webp', hurt: 'musk/shock.webp', lose: 'musk/scream.webp' } },
-    { name: '베조스', color: '#FFD83D', faces: { normal: 'bezos/glance.webp', win: 'bezos/smirk.webp', hurt: 'bezos/shock.webp', lose: 'bezos/scream.webp' } },
-    { name: '알트만', color: '#9B6BFF', faces: { normal: 'altman/glance.webp', win: 'altman/smirk.webp', hurt: 'altman/shock.webp', lose: 'altman/scream.webp' } }
+    { name: '나',     color: '#1FA8E8', badge: 'me' },     // 시원한 청색
+    { name: '머스크', color: '#FF7A6B', faces: { normal: 'musk/glance.webp', win: 'musk/smirk.webp', hurt: 'musk/shock.webp', lose: 'musk/scream.webp' } },
+    { name: '베조스', color: '#3DD6A3', faces: { normal: 'bezos/glance.webp', win: 'bezos/smirk.webp', hurt: 'bezos/shock.webp', lose: 'bezos/scream.webp' } },
+    { name: '알트만', color: '#B58CFF', faces: { normal: 'altman/glance.webp', win: 'altman/smirk.webp', hurt: 'altman/shock.webp', lose: 'altman/scream.webp' } }
   ],
 
   // AI 창업가 확장
