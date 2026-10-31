@@ -33,8 +33,20 @@
   #box.shake { animation: shake .35s ease-in-out; }
   @keyframes shake { 0%, 100% { translate: 0 0; } 20% { translate: -5px 2px; } 40% { translate: 5px -2px; } 60% { translate: -4px 1px; } 80% { translate: 3px 0; } }
   /* 도자기 파편 */
-  .shard { position: absolute; z-index: 7; width: 7px; height: 5px; border-radius: 2px; pointer-events: none; animation: shard .6s ease-out forwards; }
-  @keyframes shard { from { transform: translate(-50%, -50%) rotate(0); opacity: 1; } to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); opacity: 0; } }
+  /* 파편 : 위로 솟았다가 떨어지며 도는 조각 */
+  .shard { position: absolute; z-index: 7; pointer-events: none; border-radius: 3px; box-shadow: 0 1px 2px rgba(0,0,0,.3); animation: shard .85s cubic-bezier(.2, .7, .4, 1) forwards; }
+  .shard.tri { border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  @keyframes shard {
+    0% { transform: translate(-50%, -50%) rotate(0) scale(.6); opacity: 1; }
+    35% { transform: translate(calc(-50% + var(--dx) * .7), calc(-50% + var(--dy))) rotate(calc(var(--rot) * .4)) scale(1); opacity: 1; }
+    75% { opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + 90px)) rotate(var(--rot)) scale(.8); opacity: 0; }
+  }
+  /* 합쳐지는 자리에서 퍼지는 링 */
+  .burst { position: absolute; z-index: 6; pointer-events: none; border-radius: 50%; border: 5px solid var(--bc); transform: translate(-50%, -50%) scale(.3); animation: burst .45s ease-out forwards; }
+  @keyframes burst { to { transform: translate(-50%, -50%) scale(1.9); opacity: 0; border-width: 1px; } }
+  .ball.flash { animation: flash .3s ease-out; }
+  @keyframes flash { 0% { filter: brightness(2.2); scale: 1.18; } 100% { filter: brightness(1); scale: 1; } }
   /* 연쇄 */
   .chain { position: absolute; z-index: 9; pointer-events: none; transform: translate(-50%, -50%); font-family: 'Sunflower', sans-serif; font-weight: 700; color: #FFE27A; -webkit-text-stroke: 1.5px #0C2163; text-shadow: 0 3px 0 #0C2163; white-space: nowrap; animation: chainPop 1s ease-out forwards; }
   @keyframes chainPop { 0% { transform: translate(-50%, -50%) scale(.3); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1.25); opacity: 1; } 35% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { transform: translate(-50%, -90%) scale(1); opacity: 0; } }
@@ -495,10 +507,10 @@ const M = {
       if (!SIM) {
         await sleep(110);
         restyle(t);
-        t.el.classList.remove('pop'); void t.el.offsetWidth; t.el.classList.add('pop');
+        t.el.classList.remove('pop', 'flash'); void t.el.offsetWidth; t.el.classList.add('flash');
         const [mx, my] = mid(t.c, t.r);
         floatAt(mx, my - CELL * 0.3, '+' + gain + (stage >= S.top - 1 ? ' ' + S.stages[stage].name + '!' : ''));
-        shards(mx, my, stage - 1, 8 + stage * 3 + gone.length * 6, t.type);
+        shards(mx, my, stage, 16 + stage * 3 + gone.length * 8, t.type);
         sfx.merge(stage, S.chain + gone.length - 1);
         if (gone.length >= 2) chainText(mx, my - CELL * 0.9, `${gone.length + 1}개 동시 합병!`);
         if (S.chain >= 2) { chainText(mx, my - CELL * 0.4, S.chain); shake(); buzz([25, 30, 25 + S.chain * 10]); }
@@ -667,19 +679,30 @@ const M = {
   // ---------- 연출 ----------
   function shards(x, y, stage, n, type) {
     if (SIM) return;
+    const tn = type && toneOf(type, Math.min(stage, S.top - 1));
+    const rainbow = ['uni', 'ipo'].includes(S.stages[Math.min(stage, S.top)].key);
+    const colors = rainbow ? ['#FFB3E6', '#C9A2FF', '#7FD8FF', '#FFE27A', '#FFFFFF'] : [tn ? tn.c : '#fff', tn ? tn.c2 : '#ccc', tn ? tn.c3 : '#999', '#FFFFFF'];
+    // 링
+    const ring = document.createElement('div');
+    ring.className = 'burst';
+    ring.style.left = x + 'px'; ring.style.top = y + 'px';
+    ring.style.width = ring.style.height = CELL * 1.1 + 'px';
+    ring.style.setProperty('--bc', rainbow ? '#FFE27A' : colors[1]);
+    boxEl.appendChild(ring);
+    setTimeout(() => ring.remove(), 500);
+    // 조각
     for (let i = 0; i < n; i++) {
       const el = document.createElement('div');
-      el.className = 'shard';
-      const ang = Math.random() * Math.PI * 2, dist = 30 + Math.random() * 50;
+      el.className = 'shard' + (i % 3 === 0 ? ' tri' : '');
+      const ang = Math.random() * Math.PI * 2, dist = 35 + Math.random() * 70, sz = 8 + Math.random() * 8;
+      el.style.width = sz + 'px'; el.style.height = sz * (0.6 + Math.random() * 0.5) + 'px';
       el.style.left = x + 'px'; el.style.top = y + 'px';
-      const tn = type && toneOf(type, stage);
-      el.style.background = i % 3 ? (tn ? tn.c2 : S.stages[stage].ink) : '#FFFFFF';
-      if (S.stages[stage].key === 'uni' || S.stages[stage].key === 'ipo') el.style.background = ['#FFB3E6', '#C9A2FF', '#7FD8FF', '#FFE27A'][i % 4];
+      el.style.background = colors[i % colors.length];
       el.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
-      el.style.setProperty('--dy', Math.sin(ang) * dist - 20 + 'px');
-      el.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+      el.style.setProperty('--dy', Math.sin(ang) * dist * 0.8 - 30 + 'px');
+      el.style.setProperty('--rot', (Math.random() * 900 - 450) + 'deg');
       boxEl.appendChild(el);
-      setTimeout(() => el.remove(), 650);
+      setTimeout(() => el.remove(), 900);
     }
   }
   function chainText(x, y, n) {
