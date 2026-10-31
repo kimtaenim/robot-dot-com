@@ -58,6 +58,21 @@
   .tile.can { animation: canGlow .5s ease-in-out infinite alternate; }
   @keyframes canGlow { from { filter: brightness(1); } to { filter: brightness(1.35) drop-shadow(0 0 6px #FFE27A); } }
   .slot.over { background: #6C7A87; }
+  /* 신사업 칸 : 새 회사가 늘 여기서 나옴 */
+  .slot.hub { background: #2F6F8F; display: flex; align-items: center; justify-content: center; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 12px; color: #CDEBF7; }
+  .tile.incoming { animation: appear .25s ease-out, incoming 1s ease-in-out .25s infinite alternate; }
+  @keyframes incoming { from { filter: brightness(1); } to { filter: brightness(1.15) drop-shadow(0 0 5px #8FD8F7); } }
+  .tile.pick { animation: pickGlow .55s ease-in-out infinite alternate; }
+  @keyframes pickGlow { from { filter: brightness(1); } to { filter: brightness(1.2) drop-shadow(0 0 6px #FF8A80); } }
+
+  /* 명예의 전당 : 상장한 회사 */
+  #hall { width: 100%; max-width: 370px; text-align: center; }
+  #hall .ttl { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 13px; opacity: .8; margin-bottom: 4px; }
+  #hall .list { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; min-height: 30px; }
+  #hall .item { display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(135deg, #8A3D7A, #5541A8); border-radius: 8px; padding: 2px 8px 2px 4px; font-size: 12px; animation: appear .3s ease-out; }
+  #hall .item img { width: 24px; height: 24px; }
+  #hall .item b { font-family: 'IBM Plex Mono', monospace; color: #FFE27A; }
+  #hall .none { font-size: 12px; opacity: .5; }
   @keyframes appear { from { scale: .2; opacity: 0; } to { scale: 1; opacity: 1; } }
   @keyframes merged { 0% { scale: 1; } 50% { scale: 1.2; } 100% { scale: 1; } }
 
@@ -122,7 +137,8 @@
   #sellSheet .who { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 17px; }
   #sellSheet .big { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 52px; line-height: 1.05; color: #FFE27A; margin-top: 4px; }
   #sellSheet .how { font-family: 'IBM Plex Mono', monospace; font-size: 12px; opacity: .75; }
-  #sellSheet .tip { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 14px; color: #FFE27A; margin-top: 6px; }
+  #sellSheet .tip { font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 14px; color: #FF8A80; margin-top: 6px; }
+  #sellSheet { border-color: #FF5A4E; }
 
   #over {
     position: fixed; inset: 0; z-index: 30; background: rgba(40, 47, 54, .94);
@@ -144,13 +160,15 @@
     <div class="stat"><span>턴</span><b id="sTurn">0</b></div>
     <div class="stat cash"><span>지갑</span><b id="sCash">0</b></div>
     <div class="stat"><span>판 몸값</span><b id="sBoard">0</b></div>
+    <div class="stat"><span>상장</span><b id="sIpo">0</b></div>
   </div>
 </div>
 
 <div id="main">
   <div id="board"></div>
   <div id="legendTypes"></div>
-  <div id="hint">끌어서 같은 로봇·같은 단계 위에 놓으면 합병. 짧게 누르면 매각.</div>
+  <div id="hint"></div>
+  <div id="hall"><div class="ttl">상장사 명예의 전당</div><div class="list" id="hallList"></div></div>
 </div>
 
 <div id="actions">
@@ -163,7 +181,7 @@
   <div class="who" id="shWho"></div>
   <div class="big" id="shCost"></div>
   <div class="how" id="shHow"></div>
-  <div class="tip">같은 회사를 한 번 더 누르면 매각</div>
+  <div class="tip" id="shTip"></div>
 </div>
 
 <div id="over" class="hide">
@@ -176,14 +194,14 @@
 <script>
 // 시제품 수치표 (확정되면 config.js로 옮김)
 const M = {
-  radius: 2,               // 가운데에서 2칸 반경의 육각 판 (19칸). ?r=3 이면 37칸
-  turns: 100,              // 판 길이
-  typesPerGame: 3,         // 한 판에 나오는 로봇 종류 수 (5종 중 무작위)
-  seedChance: 0.1,         // 새 회사가 시드 단계로 나올 확률
-  startTiles: 5,           // 시작할 때 회사 수
-  extraEvery: 4,           // 이 턴마다 새 회사가 1개 더 나옴 (판이 서서히 차오름)
-  adjacentOnly: false,     // true면 바로 옆 칸끼리만 합병하고 빈칸 이동도 허용 (?adj=1). false면 어디서든 합병, 이동 없음
-  // 단계 : 같은 로봇·같은 단계 둘이 합쳐지면 한 단계 위. 유니콘 둘이 합쳐지면 상장(엑싯).
+  radius: 2,               // 가운데에서 2칸 반경의 육각 판 (19칸, 가운데는 신사업 칸). ?r=3 이면 37칸
+  turns: 100,              // 판 길이 = 신사업 칸에서 나오는 새 회사 수
+  typesPerGame: 3,         // 한 판에 나오는 로봇 종류 수 (5종 중 무작위). ?t=
+  seedChance: 0.15,        // 새 회사가 시드 단계로 나올 확률
+  adjacentOnly: false,     // true면 바로 옆 칸끼리만 합병 (?adj=1)
+  startCash: 100,          // 시작 지갑
+  // 단계 : 같은 로봇·같은 단계 둘을 합치면 한 단계 위. 유니콘 둘을 합치면 상장.
+  // 놓을 때 그 회사 몸값만큼 돈이 나가고, 합병하면 (새 몸값 - 두 회사 몸값)만큼 들어옴.
   stages: [
     { name: '창업',    value: 10 },
     { name: '시드',    value: 25 },
@@ -192,8 +210,8 @@ const M = {
     { name: '시리즈C', value: 400 },
     { name: '유니콘',  value: 1000 }
   ],
-  ipoValue: 3000,          // 상장 평가액 (× 유형 등급)
-  boardCountAtEnd: 0.5,    // 판이 끝날 때 남은 회사 몸값은 이 비율만 점수로 (엑싯해야 제값)
+  ipoMul: 5,               // 상장 대금 = 유니콘 몸값 × 2 × 이 배수
+  dumpRate: 0.5,           // 손해 매각 = 몸값의 이 비율. 판이 끝날 때 남은 회사도 이 비율로 계산
   types: [
     { key: 'arm',   name: '협동로봇',   tile: 'robot-cobot',    grade: 1.0 },
     { key: 'legs',  name: '4족로봇',    tile: 'robot-quad',     grade: 1.3 },
@@ -204,12 +222,12 @@ const M = {
 };
 
 (() => {
-  // 시험용 : 주소 뒤 ?r=2&t=2 로 판 반경·로봇 종류 수 바꾸기
+  // 시험용 : ?r=2 판 반경, ?t=2 로봇 종류 수, ?adj=1 옆끼리만 합병
   const qs = new URLSearchParams(location.search);
   if (qs.get('r')) M.radius = +qs.get('r');
   if (qs.get('t')) M.typesPerGame = +qs.get('t');
   if (qs.get('adj')) M.adjacentOnly = qs.get('adj') === '1';
-  if (M.adjacentOnly) document.getElementById('hint').textContent = '끌어서 바로 옆 같은 로봇·같은 단계 위에 놓으면 합병, 빈칸에 놓으면 이동. 짧게 누르면 매각.';
+
   const RAD = M.radius;
   const $ = id => document.getElementById(id);
   const rnd = n => Math.floor(Math.random() * n);
@@ -218,30 +236,22 @@ const M = {
   const TOP = M.stages.length - 1;
   const SQ3 = Math.sqrt(3);
 
-  // 육각 좌표 (q, r) : 꼭짓점이 위인 육각형. 가운데에서 RAD칸 안쪽만 판.
+  // 육각 좌표 (q, r) : 꼭짓점이 위인 육각형. 가운데 (0, 0)은 신사업 칸.
   const CELLS = [];
   for (let q = -RAD; q <= RAD; q++) for (let r = -RAD; r <= RAD; r++) {
     if (Math.abs(q + r) <= RAD) CELLS.push([q, r]);
   }
   const key = (q, r) => q + ',' + r;
-  const inBoard = (q, r) => Math.abs(q) <= RAD && Math.abs(r) <= RAD && Math.abs(q + r) <= RAD;
-  // 여섯 방향 : 화면 각도(아래가 +)와 육각 좌표 한 칸
-  const DIRS = [
-    { a: 0,   d: [1, 0] },   // 오른쪽
-    { a: 60,  d: [0, 1] },   // 오른쪽 아래
-    { a: 120, d: [-1, 1] },  // 왼쪽 아래
-    { a: 180, d: [-1, 0] },  // 왼쪽
-    { a: 240, d: [0, -1] },  // 왼쪽 위
-    { a: 300, d: [1, -1] }   // 오른쪽 위
-  ];
+  const isHub = (q, r) => q === 0 && r === 0;
+  const DIRS = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
 
-  const S = { grid: new Map(), cash: 0, turn: 0, types: [], over: false, sel: null, nextId: 1, exits: 0, ipos: 0 };
+  const S = { grid: new Map(), cash: 0, turn: 0, types: [], over: false, nextId: 1, ipos: 0, dumps: 0, hall: [], dumping: false, sel: null, earned: 0 };
 
-  // 판 크기 : 가로 = 칸 (2RAD+1)개 폭, 세로 = R × (3RAD + 2)
+  // 판 크기
   let HW = 50, HR = HW / SQ3, GAP = 3, OX = 0, OY = 0;
   function layout() {
     const w = Math.min(window.innerWidth, 390) - 20;
-    const h = $('main').clientHeight - 80;
+    const h = $('main').clientHeight - 150;
     HW = Math.min(w / (2 * RAD + 1), h / ((3 * RAD + 2) / SQ3));
     HR = HW / SQ3;
     const bw = HW * (2 * RAD + 1), bh = HR * (3 * RAD + 2);
@@ -249,14 +259,16 @@ const M = {
     boardEl.style.height = bh + 'px';
     OX = bw / 2; OY = bh / 2;
   }
-  // 칸의 왼쪽 위 좌표
+  const center = (q, r) => [OX + HW * (q + r / 2), OY + HR * 1.5 * r];
   function pos(q, r) {
-    const cx = OX + HW * (q + r / 2), cy = OY + HR * 1.5 * r;
+    const [cx, cy] = center(q, r);
     return [cx - HW / 2 + GAP / 2, cy - HR + GAP / 2];
   }
   const tileW = () => HW - GAP, tileH = () => HR * 2 - GAP;
 
-  const value = t => Math.round(M.stages[t.stage].value * t.type.grade);
+  const valueOf = (stage, type) => Math.round(M.stages[stage].value * type.grade);
+  const value = t => valueOf(t.stage, t.type);
+  const dumpValue = t => Math.round(value(t) * M.dumpRate);
 
   function artHTML(tile) {
     return `<span class="art bob swap" style="--d:-${(Math.random() * 1.1).toFixed(2)}s">` +
@@ -275,12 +287,10 @@ const M = {
     place(t);
     return el;
   }
-
   function place(t) {
     const [x, y] = pos(t.q, t.r);
     t.el.style.translate = `${x}px ${y}px`;
   }
-
   function restyle(t) {
     t.el.className = `tile s${t.stage}`;
     t.el.querySelector('.stg').textContent = M.stages[t.stage].name;
@@ -291,138 +301,172 @@ const M = {
     boardEl.innerHTML = '';
     for (const [q, r] of CELLS) {
       const s = document.createElement('div');
-      s.className = 'slot';
+      s.className = 'slot' + (isHub(q, r) ? ' hub' : '');
+      if (isHub(q, r)) s.textContent = '신사업';
       const [x, y] = pos(q, r);
       s.style.left = x + 'px'; s.style.top = y + 'px';
       s.style.width = tileW() + 'px'; s.style.height = tileH() + 'px';
       boardEl.appendChild(s);
     }
-    for (const t of S.grid.values()) makeTileEl(t);
+    for (const t of S.grid.values()) { makeTileEl(t); if (isHub(t.q, t.r)) t.el.classList.add('incoming'); }
   }
 
   const at = (q, r) => S.grid.get(key(q, r));
-  const empties = () => CELLS.filter(([q, r]) => !at(q, r));
+  const hubTile = () => at(0, 0);
+  const empties = () => CELLS.filter(([q, r]) => !isHub(q, r) && !at(q, r));
+  const boardTiles = () => [...S.grid.values()];
+  const adjacent = (a, b) => DIRS.some(([dq, dr]) => a.q + dq === b.q && a.r + dr === b.r);
+  const canMerge = (a, b) => a && b && a !== b && a.type === b.type && a.stage === b.stage;
+  // a를 b 위에 놓아 합병할 수 있나. 신사업 칸으로는 합병하지 않음(새 회사를 끌어서 합침).
+  const canDropMerge = (a, b) => canMerge(a, b) && !isHub(b.q, b.r) && (!M.adjacentOnly || adjacent(a, b));
+  const canPlace = t => isHub(t.q, t.r) && empties().length > 0 && S.cash >= value(t);
 
-  function spawn() {
-    const e = empties();
-    if (!e.length) return null;
-    const [q, r] = e[rnd(e.length)];
-    const t = { id: S.nextId++, type: S.types[rnd(S.types.length)], stage: Math.random() < M.seedChance ? 1 : 0, q, r };
-    S.grid.set(key(q, r), t);
-    makeTileEl(t).classList.add('new');
-    return t;
+  // 새 회사 : 늘 신사업 칸에서
+  function spawnIncoming() {
+    if (hubTile() || S.turn >= M.turns) return;
+    const t = { id: S.nextId++, type: S.types[rnd(S.types.length)], stage: Math.random() < M.seedChance ? 1 : 0, q: 0, r: 0 };
+    S.grid.set(key(0, 0), t);
+    if (!SIM) makeTileEl(t).classList.add('incoming');
   }
 
-  const canMerge = (a, b) => a && b && a.type === b.type && a.stage === b.stage;
-
-  const adjacent = (a, b) => DIRS.some(({ d }) => a.q + d[0] === b.q && a.r + d[1] === b.r);
-  // a를 b 위에 놓아 합병할 수 있나
-  const canDropMerge = (a, b) => a !== b && canMerge(a, b) && (!M.adjacentOnly || adjacent(a, b));
-
-  function movesLeft() {
-    if (M.adjacentOnly && empties().length) return true;
-    const ts = [...S.grid.values()];
+  function anyMove() {
+    const h = hubTile();
+    if (h && canPlace(h)) return true;
+    const ts = boardTiles();
     return ts.some(a => ts.some(b => canDropMerge(a, b)));
   }
 
-  // 행동 하나 끝 : 턴 +1, 새 회사 1개 (extraEvery 턴마다 1개 더)
-  function afterAction() {
-    S.turn++;
-    spawn();
-    if (S.turn % M.extraEvery === 0) spawn();
+  // 행동 뒤 확인 : 신사업 칸이 비면 다음 회사, 할 게 없으면 손해 매각, 턴이 다 되면 끝
+  function settle() {
+    if (S.over) return;
+    if (!hubTile()) {
+      if (S.turn >= M.turns) { end(); return; }
+      spawnIncoming();
+    }
+    if (!anyMove()) startDump();
     paintHUD();
-    if (S.turn >= M.turns) end('시간 종료');
-    else if (!movesLeft()) banner(empties().length ? '합칠 짝이 없다 : 회사를 팔면 새 회사가 온다' : '꽉 막혔다 : 회사를 팔아 자리를 비우자');
   }
 
-  // 빈칸으로 옮기기
-  function moveTo(t, q, r) {
+  // 놓기 : 신사업 칸의 새 회사를 빈칸에. 그 회사 몸값만큼 돈이 나감.
+  function placeTo(t, q, r) {
+    const cost = value(t);
+    S.cash -= cost;
     S.grid.delete(key(t.q, t.r));
     t.q = q; t.r = r;
     S.grid.set(key(q, r), t);
-    place(t);
-    afterAction();
+    S.turn++;
+    if (!SIM) { t.el.classList.remove('incoming'); place(t); floatAt(t, '-' + cost, true); }
+    settle();
   }
 
-  // 합병 : a가 b로 들어가 b가 한 단계 위로. 유니콘 둘이면 상장.
+  // 합병 : a가 b로 들어가 b가 한 단계 위로. (새 몸값 - 두 몸값)만큼 돈이 들어옴. 유니콘 둘이면 상장.
   function mergeInto(a, b) {
+    const fromHub = isHub(a.q, a.r);
     S.grid.delete(key(a.q, a.r));
-    a.q = b.q; a.r = b.r;
-    place(a);
-    setTimeout(() => {
-      a.el.remove();
-      if (b.stage === TOP) ipo(b);
-      else {
-        b.stage++;
-        restyle(b);
-        b.el.classList.remove('merged'); void b.el.offsetWidth; b.el.classList.add('merged');
-        if (b.stage >= 3) floatAt(b, M.stages[b.stage].name + '!');
+    if (fromHub) S.turn++;
+    if (b.stage === TOP) {
+      ipo(a, b);
+    } else {
+      const gain = valueOf(b.stage + 1, b.type) - 2 * value(b);
+      b.stage++;
+      S.cash += gain;
+      S.earned += gain;
+      if (!SIM) {
+        a.q = b.q; a.r = b.r; place(a);
+        setTimeout(() => {
+          a.el.remove();
+          restyle(b);
+          b.el.classList.remove('merged'); void b.el.offsetWidth; b.el.classList.add('merged');
+          floatAt(b, '+' + gain + (b.stage >= 3 ? ' ' + M.stages[b.stage].name + '!' : ''));
+        }, 120);
       }
-      afterAction();
-    }, 120);
+    }
+    settle();
   }
 
-  // 유니콘 둘이 합쳐지면 상장 : 큰돈을 받고 칸이 빔
-  function ipo(t) {
-    const v = Math.round(M.ipoValue * t.type.grade);
+  // 상장 : 판에서 사라지고 명예의 전당으로
+  function ipo(a, b) {
+    const v = valueOf(TOP, b.type) * 2 * M.ipoMul;
     S.cash += v;
     S.ipos++;
-    floatAt(t, '+' + v);
-    banner(`${t.type.name} 상장! +${v}`, true);
-    S.grid.delete(key(t.q, t.r));
-    t.el.remove();
+    S.grid.delete(key(b.q, b.r));
+    S.hall.push({ type: b.type, turn: S.turn, v });
+    if (!SIM) {
+      a.q = b.q; a.r = b.r; place(a);
+      setTimeout(() => { a.el.remove(); b.el.remove(); }, 120);
+      floatAt(b, '+' + v);
+      banner(`${b.type.name} 상장! +${v}`, true);
+      paintHall();
+    }
   }
 
-  // 매각 : 회사를 누르면 몸값, 한 번 더 누르면 팔고 칸이 빔 (한 턴 씀)
-  function tapTile(t) {
-    if (S.over) return;
-    if (S.sel === t) { sell(t); return; }
-    if (S.sel) S.sel.el.classList.remove('sel');
+  // 손해 매각 : 놓을 곳도 합칠 곳도 없을 때. 팔 회사를 골라 반값에.
+  function startDump() {
+    S.dumping = true;
+    if (SIM) return;
+    for (const t of boardTiles()) t.el.classList.add('pick');
+    $('shWho').textContent = '손해 매각';
+    $('shCost').textContent = '반값';
+    $('shHow').textContent = S.cash < (hubTile() ? value(hubTile()) : 0) && empties().length ? '놓을 돈이 모자라고 합칠 곳도 없다' : '놓을 곳도 합칠 곳도 없다';
+    $('shTip').textContent = '팔 회사를 누르세요 (몸값의 ' + M.dumpRate * 100 + '%)';
+    showSheet();
+  }
+  function pickDump(t) {
+    if (S.sel === t) { dump(t); return; }
+    if (S.sel) S.sel.el.classList.add('pick');
     S.sel = t;
+    t.el.classList.remove('pick');
     t.el.classList.add('sel');
-    $('shWho').textContent = `${t.type.name} ${M.stages[t.stage].name} 매각`;
-    $('shCost').textContent = value(t);
-    $('shHow').textContent = `${M.stages[t.stage].name} ${M.stages[t.stage].value} × 등급 ${t.type.grade}`;
+    $('shWho').textContent = `${t.type.name} ${M.stages[t.stage].name} 손해 매각`;
+    $('shCost').textContent = dumpValue(t);
+    $('shHow').textContent = `몸값 ${value(t)}의 ${M.dumpRate * 100}%`;
+    $('shTip').textContent = '같은 회사를 한 번 더 누르면 매각';
+    showSheet();
+  }
+  function dump(t) {
+    const v = dumpValue(t);
+    S.cash += v;
+    S.dumps++;
+    S.dumping = false;
+    S.sel = null;
+    S.grid.delete(key(t.q, t.r));
+    if (isHub(t.q, t.r)) S.turn++;
+    if (!SIM) {
+      $('sellSheet').classList.add('hide');
+      for (const o of boardTiles()) o.el.classList.remove('pick', 'sel');
+      floatAt(t, '+' + v);
+      t.el.style.transition = 'translate .2s, opacity .2s';
+      t.el.style.opacity = '0';
+      setTimeout(() => t.el.remove(), 200);
+    }
+    settle();
+  }
+  function showSheet() {
     const sh = $('sellSheet');
     sh.classList.remove('hide');
     sh.style.animation = 'none'; void sh.offsetWidth; sh.style.animation = '';
   }
 
-  function closeSell() {
-    if (S.sel) S.sel.el.classList.remove('sel');
-    S.sel = null;
-    $('sellSheet').classList.add('hide');
-  }
-
-  function sell(t) {
-    const v = value(t);
-    closeSell();
-    S.cash += v;
-    S.exits++;
-    floatAt(t, '+' + v);
-    S.grid.delete(key(t.q, t.r));
-    t.el.style.transition = 'translate .2s, opacity .2s';
-    t.el.style.opacity = '0';
-    setTimeout(() => t.el.remove(), 200);
-    afterAction();
-  }
-
-  function boardValue() {
-    let v = 0;
-    for (const t of S.grid.values()) v += value(t);
-    return v;
-  }
+  const boardValue = () => boardTiles().reduce((v, t) => v + value(t), 0);
 
   function paintHUD() {
+    if (SIM) return;
     $('sTurn').textContent = `${S.turn}/${M.turns}`;
     $('sCash').textContent = S.cash;
     $('sBoard').textContent = boardValue();
+    $('sIpo').textContent = S.ipos;
+  }
+  function paintHall() {
+    $('hallList').innerHTML = S.hall.length
+      ? S.hall.map((h, i) => `<span class="item"><img src="assets/${h.type.tile}-a.png" alt="">#${i + 1} ${h.type.name} <b>+${h.v}</b></span>`).join('')
+      : '<span class="none">유니콘 둘을 합치면 상장해서 여기에 올라요</span>';
   }
 
-  function floatAt(t, text) {
+  function floatAt(t, text, minus) {
     const [x, y] = pos(t.q, t.r);
     const f = document.createElement('div');
     f.className = 'float';
+    if (minus) f.style.color = '#FF8A80';
     f.textContent = text;
     f.style.left = (x + tileW() / 2) + 'px';
     f.style.top = (y + tileH() / 3) + 'px';
@@ -432,6 +476,7 @@ const M = {
 
   let bannerT = 0;
   function banner(text, ipoStyle) {
+    if (SIM) return;
     const b = $('banner');
     b.textContent = text;
     b.classList.toggle('ipo', !!ipoStyle);
@@ -440,46 +485,56 @@ const M = {
     bannerT = setTimeout(() => b.classList.remove('show'), 1900);
   }
 
-  function end(why) {
+  const score = () => S.cash + Math.round(boardValue() * M.dumpRate);
+
+  function end() {
     S.over = true;
-    closeSell();
-    const bv = Math.round(boardValue() * M.boardCountAtEnd);
+    if (SIM) return;
+    $('sellSheet').classList.add('hide');
+    const bv = Math.round(boardValue() * M.dumpRate);
     setTimeout(() => {
-      $('overTitle').textContent = why;
+      $('overTitle').textContent = '판 종료';
       $('overScore').textContent = S.cash + bv;
-      $('overText').innerHTML = `지갑 ${S.cash} + 남은 회사 ${bv} (몸값의 ${M.boardCountAtEnd * 100}%)<br>매각 ${S.exits}번 · 상장 ${S.ipos}번 · ${S.turn}턴`;
+      $('overText').innerHTML = `지갑 ${S.cash} + 남은 회사 ${bv} (몸값의 ${M.dumpRate * 100}%)<br>상장 ${S.ipos}번 · 손해 매각 ${S.dumps}번`;
       $('over').classList.remove('hide');
     }, 500);
   }
 
-  function newGame() {
+  let SIM = false;
+  function newGame(sim) {
+    SIM = !!sim;
     S.grid = new Map();
-    S.cash = 0; S.turn = 0; S.over = false; S.sel = null; S.exits = 0; S.ipos = 0;
+    S.cash = M.startCash; S.turn = 0; S.over = false; S.ipos = 0; S.dumps = 0; S.hall = []; S.dumping = false; S.sel = null; S.earned = 0;
     S.types = shuffle([...M.types]).slice(0, M.typesPerGame);
-    $('legendTypes').innerHTML = S.types.map(t => `<span><img src="assets/${t.tile}-a.png" alt="">${t.name} ×${t.grade}</span>`).join('');
-    $('over').classList.add('hide');
-    closeSell();
-    buildBoard();
-    for (let i = 0; i < M.startTiles; i++) spawn();
+    if (!SIM) {
+      $('legendTypes').innerHTML = S.types.map(t => `<span><img src="assets/${t.tile}-a.png" alt="">${t.name} ×${t.grade}</span>`).join('');
+      $('hint').textContent = M.adjacentOnly
+        ? '신사업 칸의 새 회사를 빈칸에 놓으면 돈이 나가고, 바로 옆 같은 회사끼리 합치면 돈이 들어와요.'
+        : '신사업 칸의 새 회사를 빈칸에 놓으면 돈이 나가고, 같은 회사끼리 합치면 돈이 들어와요.';
+      $('over').classList.add('hide');
+      $('sellSheet').classList.add('hide');
+      buildBoard();
+      paintHall();
+    }
+    spawnIncoming();
     paintHUD();
   }
 
-  // 끌기 입력 : 회사를 집어 손가락을 따라 움직이고, 놓은 칸에 따라 합병·이동. 짧게 누르면 매각 창.
+  // 끌기 입력 : 회사를 집어 손가락을 따라 움직이고, 놓은 칸에 따라 놓기·합병. 손해 매각 중에는 탭으로 고름.
   let drag = null;
-  // 화면 좌표 → 가장 가까운 칸 (칸 안쪽일 때만)
   function cellAt(clientX, clientY) {
     const rect = boardEl.getBoundingClientRect();
     const x = clientX - rect.left, y = clientY - rect.top;
     let best = null, bd = Infinity;
     for (const [q, r] of CELLS) {
-      const cx = OX + HW * (q + r / 2), cy = OY + HR * 1.5 * r;
+      const [cx, cy] = center(q, r);
       const d = Math.hypot(x - cx, y - cy);
       if (d < bd) { bd = d; best = [q, r]; }
     }
     return bd <= HR ? best : null;
   }
-  function slotEl(q, r) { return boardEl.children[CELLS.findIndex(([a, b]) => a === q && b === r)]; }
-  function clearOver() { for (const el of boardEl.querySelectorAll('.slot.over')) el.classList.remove('over'); }
+  const slotEl = (q, r) => boardEl.children[CELLS.findIndex(([a, b]) => a === q && b === r)];
+  const clearOver = () => { for (const el of boardEl.querySelectorAll('.slot.over')) el.classList.remove('over'); };
 
   boardEl.addEventListener('pointerdown', e => {
     if (S.over || drag) return;
@@ -493,14 +548,13 @@ const M = {
   });
 
   boardEl.addEventListener('pointermove', e => {
-    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag || e.pointerId !== drag.id || S.dumping) return;
     const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
     if (!drag.moved && Math.hypot(dx, dy) < 10) return;
     if (!drag.moved) {
       drag.moved = true;
-      closeSell();
       drag.t.el.classList.add('drag');
-      for (const o of S.grid.values()) if (canDropMerge(drag.t, o)) o.el.classList.add('can');
+      for (const o of boardTiles()) if (canDropMerge(drag.t, o)) o.el.classList.add('can');
     }
     drag.t.el.style.translate = `${drag.x + dx}px ${drag.y + dy}px`;
     clearOver();
@@ -515,21 +569,67 @@ const M = {
     clearOver();
     for (const el of boardEl.querySelectorAll('.tile.can')) el.classList.remove('can');
     d.t.el.classList.remove('drag');
-    if (!d.moved) { if (!cancel) tapTile(d.t); return; }
+    if (S.dumping) { if (!d.moved && !cancel) pickDump(d.t); return; }
+    if (!d.moved) return;
     const c = cancel ? null : cellAt(e.clientX, e.clientY);
     const o = c && at(...c);
-    if (c && !o && M.adjacentOnly) moveTo(d.t, ...c);
-    else if (o && canDropMerge(d.t, o)) mergeInto(d.t, o);
-    else place(d.t); // 제자리로
+    if (c && !o && !isHub(...c) && isHub(d.t.q, d.t.r)) {
+      if (S.cash >= value(d.t)) { placeTo(d.t, ...c); return; }
+      banner(`돈이 모자라 못 놓는다 (${value(d.t)} 필요)`);
+    } else if (o && canDropMerge(d.t, o)) { mergeInto(d.t, o); return; }
+    else if (c && !o && !isHub(d.t.q, d.t.r)) banner('이미 놓은 회사는 옮길 수 없다');
+    else if (o && o !== d.t && M.adjacentOnly && canMerge(d.t, o)) banner('바로 옆 칸끼리만 합칠 수 있다');
+    place(d.t);
   }
   boardEl.addEventListener('pointerup', e => endDrag(e, false));
   boardEl.addEventListener('pointercancel', e => endDrag(e, true));
-  // 판 밖을 누르면 매각 창 닫기
-  document.addEventListener('pointerdown', e => { if (!boardEl.contains(e.target) && !e.target.closest('button')) closeSell(); });
 
   $('bNew').addEventListener('click', () => { if (S.turn === 0 || S.over || confirm('지금 판을 버리고 새로 시작할까?')) newGame(); });
-  $('bRestart').addEventListener('click', newGame);
+  $('bRestart').addEventListener('click', () => newGame());
   window.addEventListener('resize', buildBoard);
+
+  // 시험용 봇 : 화면 없이 한 판을 빠르게 돌림. window.simulate(판 수, 옆끼리만?)
+  window.simulate = (games, adj) => {
+    const keep = M.adjacentOnly;
+    M.adjacentOnly = !!adj;
+    const out = [];
+    for (let g = 0; g < games; g++) {
+      newGame(true);
+      let guard = 0;
+      while (!S.over && guard++ < 5000) {
+        if (S.dumping) {
+          const ts = boardTiles().sort((a, b) => value(a) - value(b));
+          dump(ts[0]);
+          continue;
+        }
+        // 판 위 합병 (높은 단계부터)
+        const ts = boardTiles().filter(t => !isHub(t.q, t.r)).sort((a, b) => b.stage - a.stage);
+        let did = false;
+        for (const a of ts) { const b = ts.find(b => canDropMerge(a, b)); if (b) { mergeInto(a, b); did = true; break; } }
+        if (did) continue;
+        const h = hubTile();
+        if (!h) break;
+        const tgt = boardTiles().find(b => canDropMerge(h, b));
+        if (tgt) { mergeInto(h, tgt); continue; }
+        // 놓기 : 같은 회사 옆자리 > 같은 종류 옆자리 > 아무 데나
+        let best = null, bs = -1;
+        for (const [q, r] of empties()) {
+          let sc = Math.random();
+          for (const [dq, dr] of DIRS) {
+            const o = at(q + dq, r + dr);
+            if (o && !isHub(o.q, o.r) && o.type === h.type) sc += o.stage === h.stage ? 10 : 2;
+          }
+          if (sc > bs) { bs = sc; best = [q, r]; }
+        }
+        if (best && S.cash >= value(h)) placeTo(h, ...best);
+        else startDump();
+      }
+      out.push({ score: score(), ipos: S.ipos, dumps: S.dumps, cash: S.cash, earned: S.earned });
+    }
+    M.adjacentOnly = keep;
+    newGame();
+    return out;
+  };
 
   newGame();
 })();
