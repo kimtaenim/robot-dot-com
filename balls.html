@@ -140,13 +140,9 @@
 
   #actions { flex: none; display: flex; gap: 6px; padding: 6px 10px 10px; width: 100%; max-width: 390px; }
   #actions button { flex: 1; height: 46px; border: none; border-radius: 10px; background: var(--panel); color: var(--fg); font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; }
-  /* 매각 버튼 : 적자면 붉게 깜빡임, 누르면 매각 모드 */
-  #bSell.debt { background: #8E2A24; animation: urgent .6s ease-in-out infinite alternate; }
-  #bSell.on { background: #FFE27A; color: #2A2F35; animation: none; }
-  /* 매각 모드에서 고른 공 위의 가격표 */
-  #tag { position: absolute; z-index: 8; pointer-events: none; transform: translate(-50%, -100%); background: #FFE27A; color: #2A2F35; border-radius: 10px; padding: 3px 10px; text-align: center; font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 13px; white-space: nowrap; box-shadow: 0 3px 6px rgba(0,0,0,.35); }
-  #tag b { display: block; font-family: 'IBM Plex Mono', monospace; font-size: 22px; line-height: 1.1; }
-  #tag.hide { display: none; }
+  /* 재정 위기 : 헐값에 팔려 나가는 공 */
+  .ball.firesale { filter: brightness(1.3) drop-shadow(0 0 10px #FF5A4E); scale: 1.12; transition: scale .25s; z-index: 6; }
+  #banner.crisis { background: linear-gradient(135deg, #8E2A24, #C9443A); }
   /* 빚 천장 : 적자가 커질수록 위쪽 선이 내려옴 */
   #line span { position: absolute; right: 6px; top: 2px; font-size: 11px; color: #FF8A80; font-family: 'Sunflower', sans-serif; font-weight: 700; }
   #line { transition: top .4s ease-out; }
@@ -184,13 +180,12 @@
   <div id="box">
     <div id="guide"></div>
     <div id="line"><span id="lineTxt"></span></div>
-    <div id="tag" class="hide"></div>
   </div>
   <div id="legendTypes"></div>
   <div id="hint">좌우로 겨누고 떼면 떨어져요. 같은 공끼리 닿으면 더 큰 공이 돼요.</div>
 </div>
 
-<div id="actions"><button id="bSell">매각</button><button id="bDex">도감</button><button id="bNew">새 판</button></div>
+<div id="actions"><button id="bDex">도감</button><button id="bNew">새 판</button></div>
 <div id="banner"></div>
 <div id="dex" class="hide">
   <div class="dexHead"><div><div class="dt">로봇 회사 도감</div><div class="ds" id="dexSum"></div></div><button id="dexClose">닫기</button></div>
@@ -239,7 +234,8 @@ const M = {
   overflowSec: 1.5,        // 공이 위쪽 선을 이만큼 넘어 있으면 손해 매각
   debtSqueeze: 0.02,       // 적자 100마다 천장(위쪽 선)이 판 높이의 이 비율만큼 내려옴
   debtSqueezeMax: 0.3,     // 천장이 내려오는 최대치 (판 높이 비율)
-  bankruptAt: 300,         // 적자가 이만큼을 넘으면 부도 : 그 레벨을 다시 (지갑은 레벨 시작 때로)
+  crisisAt: 300,           // 적자가 이만큼을 넘으면 재정 위기 : 몸값 높은 공부터 헐값에 팔려 나감
+  fireSaleRate: 0.3,       // 재정 위기 헐값 = 몸값의 이 비율
   dropGap: 0.45,           // 떨어뜨린 뒤 다음 공을 들기까지 (초)
   gravity: 1800,           // 픽셀/초²
   types: [
@@ -261,7 +257,7 @@ const M = {
   const boxEl = $('box');
   const TOP = M.stages.length - 1;
 
-  const S = { balls: [], cash: 0, turn: 0, level: 1, types: [], seen: {}, cur: null, next: null, aimX: 0, ready: true, over: false, cleared: false, selling: false, sel: null, dumps: 0, nextId: 1, ipos: 0, firstIpo: 0, minCash: 0, overT: 0 };
+  const S = { balls: [], cash: 0, turn: 0, level: 1, types: [], seen: {}, cur: null, next: null, aimX: 0, ready: true, over: false, cleared: false, crisis: false, dumps: 0, nextId: 1, ipos: 0, firstIpo: 0, minCash: 0, overT: 0 };
 
   // 판 크기 : 화면 폭을 꽉 채움
   let BW = 360, BH = 480, LINE = 80;
@@ -323,7 +319,7 @@ const M = {
   }
 
   function drop() {
-    if (!S.ready || !S.cur || S.over || S.selling) return;
+    if (!S.ready || !S.cur || S.over || S.crisis) return;
     const b = S.cur;
     S.cur = null; S.ready = false;
     b.r = radius(b.stage);
@@ -391,7 +387,7 @@ const M = {
     const high = S.balls.some(b => clock - b.born > 1 && b.y - b.r < ceil && Math.abs(b.vy) < 120);
     S.overT = high ? S.overT + dt : 0;
     if (!SIM) $('line').classList.toggle('warn', S.overT > 0);
-    if (S.overT > M.overflowSec && S.selling !== 'forced' && !S.over) { S.overT = 0; startSell(true); }
+    if (S.overT > M.overflowSec && !S.over && !S.crisis) { S.overT = 0; overflowSell(ceil); }
   }
 
   function merge(a, c) {
@@ -438,7 +434,6 @@ const M = {
     shake(); buzz([60, 40, 60, 40, 120]);
     sfx.ipo();
     paintHUD();
-    stopSell();
     setTimeout(() => queueCard('end', a.type, showClear), 1200);
     const showClear = () => setTimeout(() => {
       $('overTitle').textContent = `레벨 ${S.level} 클리어!`;
@@ -455,78 +450,55 @@ const M = {
   function paintLine() {
     if (SIM) return;
     $('line').style.top = lineY() + 'px';
-    $('lineTxt').textContent = S.cash < 0 ? `적자 ${S.cash} / 부도 -${M.bankruptAt}` : '';
+    $('lineTxt').textContent = S.cash < 0 ? `적자 ${S.cash} / 재정 위기 -${M.crisisAt}` : '';
   }
 
   function settle() {
     paintHUD();
-    if (S.cash < -M.bankruptAt && !S.over) bankrupt();
+    if (S.cash < -M.crisisAt && !S.over && !S.crisis) fireSale();
   }
 
-  // 부도 : 그 레벨 실패. 위기·폐업 카드를 보고 같은 레벨을 다시.
-  function bankrupt() {
-    S.over = true; S.failed = true;
-    if (SIM) return;
-    stopSell();
-    shake(); buzz([120, 60, 120, 60, 200]); sfx.bankrupt();
-    banner(`부도! 적자가 -${M.bankruptAt}을 넘었어요`);
-    const showFail = () => setTimeout(() => {
-      $('overTitle').textContent = `부도! 레벨 ${S.level} 실패`;
-      $('overScore').textContent = S.cash;
-      $('overScore').style.color = '#FF8A80';
-      $('overText').innerHTML = `${S.turn}턴 · 손해 매각 ${S.dumps}번<br>지갑은 이 레벨을 시작할 때(${S.levelCash})로 돌아가요`;
-      $('bRestart').textContent = `레벨 ${S.level} 다시`;
-      $('over').classList.remove('hide');
-    }, 200);
-    setTimeout(() => queueCard('fail', S.types[rnd(S.types.length)], showFail), 900);
-  }
-
-  // 매각 모드 : 공을 누르면 가격표, 한 번 더 누르면 반값에 팜. 넘쳤을 때는 저절로 켜지고 팔 때까지 못 끔.
-  function startSell(forced) {
-    if (forced && !SIM && !S.crashed) { S.crashed = true; buzz([80, 60, 80]); }
-    S.selling = forced ? 'forced' : 'manual';
-    S.sel = null;
-    if (SIM) return;
-    for (const b of S.balls) b.el.classList.add('pick');
-    $('bSell').classList.add('on');
-    $('bSell').textContent = forced ? '넘쳤어요 : 공 하나를 파세요' : '매각 그만';
-    banner(forced ? '넘쳤어요 : 공 하나를 팔아야 해요' : '팔 공을 누르세요 (반값)');
-  }
-  function stopSell() {
-    S.selling = false; S.sel = null;
-    if (SIM) return;
-    for (const b of S.balls) b.el.classList.remove('pick', 'sel');
-    $('tag').classList.add('hide');
-    $('bSell').classList.remove('on');
-    $('bSell').textContent = '매각';
-  }
-  function pickBall(b) {
-    if (S.sel === b) { sellBall(b); return; }
-    if (S.sel && S.sel.el) { S.sel.el.classList.remove('sel'); S.sel.el.classList.add('pick'); }
-    S.sel = b;
-    b.el.classList.remove('pick'); b.el.classList.add('sel');
-    $('tag').innerHTML = `${b.type.name} ${M.stages[b.stage].name}<b>+${dumpValue(b)}</b>한 번 더 누르면 팔아요`;
-    $('tag').classList.remove('hide');
-    drawTag();
-  }
-  function drawTag() {
-    if (!S.sel) return;
-    const t = $('tag'), half = t.offsetWidth / 2 + 4;
-    t.style.left = Math.max(half, Math.min(BW - half, S.sel.x)) + 'px';
-    t.style.top = Math.max(t.offsetHeight + 4, S.sel.y - S.sel.r - 4) + 'px';
-  }
-  function sellBall(b) {
-    const v = dumpValue(b);
+  // 공 하나를 팖 (rate : 몸값 대비 받는 비율)
+  function sellBall(b, rate, label) {
+    const v = Math.round(value(b) * rate);
     S.cash += v;
     S.dumps++;
     S.balls = S.balls.filter(o => o !== b);
-    if (!SIM) {
-      floatAt(b.x, b.y, '+' + v); b.el.remove(); shards(b.x, b.y, b.stage, 10); sfx.sell();
-      // 넘쳐서 판 첫 번째는 위기 카드, 시리즈A 이상을 팔면 매각 카드
-      queueCard('sell', b.type);
-    }
-    stopSell();
+    if (!SIM) { floatAt(b.x, b.y, `+${v} ${label}`); b.el.remove(); shards(b.x, b.y, b.stage, 12); sfx.sell(); paintHUD(); }
+  }
+
+  // 넘침 : 선을 넘은 공 중 가장 싼 공을 반값에 저절로 팖
+  function overflowSell(ceil) {
+    const over = S.balls.filter(b => b.y - b.r < ceil).sort((a, b) => value(a) - value(b));
+    if (!over.length) return;
+    sellBall(over[0], M.dumpRate, '넘침');
+    banner('자리가 넘쳐 공 하나를 반값에 팔았어요');
+    buzz([60, 40, 60]);
     settle();
+  }
+
+  // 재정 위기 : 적자가 한도를 넘으면 잠시 멈추고, 몸값 높은 공부터 헐값에 팔려 나감. 지갑이 0 이상이 되면 멈춤.
+  function fireSale() {
+    S.crisis = true;
+    const queue = S.balls.slice().sort((a, b) => value(b) - value(a));
+    if (SIM) {
+      while (S.cash < 0 && queue.length) sellBall(queue.shift(), M.fireSaleRate, '헐값');
+      S.crisis = false;
+      return;
+    }
+    S.paused = true;
+    shake(); buzz([120, 60, 120]); sfx.crisis();
+    banner('재정 위기! 핵심 자산을 헐값에 팝니다', 'crisis');
+    const next = () => {
+      if (S.cash >= 0 || !queue.length) {
+        setTimeout(() => queueCard('crisis', S.types[rnd(S.types.length)], () => { S.crisis = false; S.paused = false; paintHUD(); }), 500);
+        return;
+      }
+      const b = queue.shift();
+      b.el.classList.add('firesale');
+      setTimeout(() => { sellBall(b, M.fireSaleRate, '헐값'); setTimeout(next, 260); }, 450);
+    };
+    setTimeout(next, 900);
   }
 
   const boardValue = () => S.balls.reduce((v, b) => v + value(b), 0);
@@ -536,7 +508,6 @@ const M = {
     $('sTurn').textContent = S.turn;
     $('sCash').textContent = S.cash;
     $('sCashBox').classList.toggle('red', S.cash < 0);
-    $('bSell').classList.toggle('debt', S.cash < 0 && !S.selling);
     paintLine();
     $('sBoard').textContent = boardValue();
   }
@@ -554,7 +525,8 @@ const M = {
     if (SIM) return;
     const b = $('banner');
     b.textContent = text;
-    b.classList.toggle('ipo', !!ipoStyle);
+    b.classList.toggle('ipo', ipoStyle === true);
+    b.classList.toggle('crisis', ipoStyle === 'crisis');
     b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
     clearTimeout(bannerT);
     bannerT = setTimeout(() => b.classList.remove('show'), 1900);
@@ -567,19 +539,17 @@ const M = {
     S.seen = Object.fromEntries(M.types.map(t => [t.key, 0]));
     startLevel();
   }
-  function startLevel(retry) {
+  function startLevel() {
     for (const b of S.balls) if (b.el) b.el.remove();
     if (S.cur && S.cur.el) S.cur.el.remove();
     S.balls = []; timers.length = 0;
-    S.turn = 0; S.over = false; S.cleared = false; S.failed = false; S.dumps = 0; S.selling = false; S.sel = null; S.overT = 0;
+    S.turn = 0; S.over = false; S.cleared = false; S.dumps = 0; S.crisis = false; S.overT = 0;
     S.chain = 0; S.lastMerge = -9; S.milestones = new Set(); S.crashed = false; S.crashCard = false; S.paused = false;
     S.cur = null; S.next = null;
-    if (retry) S.cash = S.levelCash;   // 부도 뒤 다시 : 같은 로봇 짝, 지갑은 레벨 시작 때로
-    else {
+    {
       const k = M.levelTypes[Math.min(S.level - 1, M.levelTypes.length - 1)];
       S.types = shuffle([...M.types]).sort((a, b) => S.seen[a.key] - S.seen[b.key]).slice(0, k);
       for (const t of S.types) S.seen[t.key]++;
-      S.levelCash = S.cash;
     }
     if (!SIM) {
       layout();
@@ -587,7 +557,6 @@ const M = {
       $('bRestart').textContent = '다시 창업';
       $('legendTypes').innerHTML = S.types.map(t => `<span><img src="assets/${t.tile}-a.png" alt="">${t.name} ×${t.grade}</span>`).join('');
       $('over').classList.add('hide');
-      stopSell();
     }
     spawn();
     paintHUD();
@@ -645,7 +614,7 @@ const M = {
       unicorn: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.25, 'triangle', 0.16, null, 0.08 * i)),
       ipo: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i === 5 ? 0.6 : 0.18, 'square', 0.08, null, 0.12 * i)),
       sell: () => tone(400, 0.15, 'sawtooth', 0.07, 200),
-      bankrupt: () => [392, 330, 262, 196].forEach((f, i) => tone(f, i === 3 ? 0.7 : 0.22, 'sawtooth', 0.09, null, 0.18 * i)),
+      crisis: () => [392, 330, 262, 196].forEach((f, i) => tone(f, i === 3 ? 0.7 : 0.22, 'sawtooth', 0.09, null, 0.18 * i)),
       card: () => tone(1320, 0.12, 'sine', 0.1, 1760)
     };
   })();
@@ -653,13 +622,13 @@ const M = {
   // ---------- 실제 회사 카드 (data/cards.json에 있는 것만) ----------
   const DATA = { cards: [], companies: {} };
   const ROBOT_GROUP = { arm: 'cobot', amr: 'service', legs: 'quadruped', hum: 'humanoid' };   // AMR은 서비스로봇 묶음
-  const EVENT_NAME = { found: '창업', grow: '성장', market: '시장', steal: '빼앗김', merge: '합병', sell: '매각', ipo: '상장', crash: '위기', close: '폐업', regulate: '규제' };
+  const EVENT_NAME = { found: '창업', grow: '성장', market: '시장', steal: '빼앗김', merge: '합병', sell: '매각', ipo: '상장', crash: '재정 위기', close: '사업 정리', regulate: '규제' };
   // 게임 순간마다 쓰는 카드 묶음 : 175장이 다 나오게
   const MOMENT = {
     start: ['found', 'market', 'regulate'],              // 레벨 시작
-    sell: ['sell', 'merge', 'steal'],     // 매각
+    sell: ['sell', 'merge', 'steal'],     // (예비) 매각
     end: ['ipo', 'grow'],                 // 레벨 끝 : 상장
-    fail: ['crash', 'close']              // 레벨 끝 : 부도
+    crisis: ['crash', 'close']            // 재정 위기
   };
   const GROUP = {
     cobot: { name: '협동로봇', icon: 'robot-cobot' },
@@ -783,7 +752,6 @@ const M = {
       // 작은 걸음으로 나눠 안정적으로
       for (let k = 0; k < 2; k++) step(dt / 2);
       for (const b of S.balls) if (b.el) drawBall(b);
-      drawTag();
     }
     requestAnimationFrame(frame);
   }
@@ -791,31 +759,21 @@ const M = {
   // 입력 : 손가락 좌우 → 겨누기, 떼면 떨어뜨림. 매각 고르기 중에는 공을 짧게 누름.
   let touch = null;
   const localX = e => e.clientX - boxEl.getBoundingClientRect().left;
-  const ballAt = e => {
-    const r = boxEl.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-    return S.balls.find(b => Math.hypot(b.x - x, b.y - y) < b.r);
-  };
   boxEl.addEventListener('pointerdown', e => {
     sfx.unlock();
     if (S.over || S.paused) return;
     e.preventDefault();
-    touch = { x: e.clientX, y: e.clientY, id: e.pointerId, ball: S.selling ? ballAt(e) : null };
+    touch = { x: e.clientX, y: e.clientY, id: e.pointerId };
     boxEl.setPointerCapture(e.pointerId);
-    if (!S.selling) aim(localX(e));
+    aim(localX(e));
   });
   boxEl.addEventListener('pointermove', e => {
-    if (!touch || e.pointerId !== touch.id || S.selling) return;
+    if (!touch || e.pointerId !== touch.id) return;
     aim(localX(e));
   });
   boxEl.addEventListener('pointerup', e => {
     if (!touch || e.pointerId !== touch.id) return;
-    const t0 = touch; touch = null;
-    const short = Math.hypot(e.clientX - t0.x, e.clientY - t0.y) < 10;
-    if (S.selling) {
-      if (short && t0.ball) pickBall(t0.ball);
-      else if (short && S.selling === 'manual') stopSell();   // 빈 곳을 누르면 매각 모드 끝
-      return;
-    }
+    touch = null;
     drop();
   });
   document.addEventListener('keydown', e => {
@@ -824,15 +782,10 @@ const M = {
     else if (e.key === 'ArrowDown' || e.key === ' ') drop();
   });
 
-  $('bSell').addEventListener('click', () => {
-    if (S.over || S.selling === 'forced') return;
-    if (S.selling) stopSell(); else startSell(false);
-  });
   $('bNew').addEventListener('click', () => { if ((S.turn === 0 && S.level === 1) || confirm('레벨 1부터 새로 시작할까요?')) newGame(); });
   $('bRestart').addEventListener('click', () => {
     $('overScore').style.color = '';
     if (S.cleared) { S.level++; startLevel(); }
-    else if (S.failed) startLevel(true);
     else newGame();
   });
 
@@ -843,11 +796,6 @@ const M = {
       newGame(true);
       let guard = 0;
       while (!S.over && S.turn < maxTurns && guard++ < 400000) {
-        if (S.selling === 'forced') {
-          const top = S.balls.slice().sort((a, b) => (a.y - a.r) - (b.y - b.r))[0];
-          sellBall(top);
-          continue;
-        }
         if (S.ready && S.cur) {
           const same = S.balls.filter(b => b.type === S.cur.type && b.stage === S.cur.stage).sort((a, b) => (a.y - a.r) - (b.y - b.r));
           const r = radius(S.cur.stage);
@@ -857,7 +805,7 @@ const M = {
         }
         step(1 / 120);
       }
-      out.push({ firstIpo: S.firstIpo, dumps: S.dumps, turn: S.turn, minCash: S.minCash, failed: !!S.failed });
+      out.push({ firstIpo: S.firstIpo, dumps: S.dumps, turn: S.turn, minCash: S.minCash });
     }
     newGame();
     return out;
