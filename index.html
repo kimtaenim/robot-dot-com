@@ -92,6 +92,10 @@
   @keyframes artB { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 1; } }
   @keyframes artBob { 0%, 100% { rotate: -14deg; translate: 0 0; } 25% { rotate: 0deg; translate: 0 -18%; } 50% { rotate: 14deg; translate: 0 0; } 75% { rotate: 0deg; translate: 0 -18%; } }
   .seg { pointer-events: none; }
+  .seg.owned { mix-blend-mode: multiply; }
+  .badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #111; color: #fff; font-family: 'IBM Plex Mono', monospace; font-weight: 700; }
+  .art.face .badge { position: absolute; inset: 0; border: 3px solid var(--c); font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,.35); }
+  #legend .badge { width: 18px; height: 18px; font-size: 8px; border: 2px solid; flex: none; }
   /* 본사 칸 : 창업가 얼굴 (동그랗게, 테두리는 창업가 색) */
   .art.face img { border-radius: 50%; border: 3px solid var(--c); object-fit: cover; box-shadow: 0 2px 4px rgba(0,0,0,.35); }
   .art.gone { animation: gone .5s ease-in forwards; }
@@ -373,8 +377,10 @@
     `<span class="art bob swap ${extra}" style="--d:-${(Math.random() * 1.1).toFixed(2)}s">` +
     `<img src="assets/${tile}-a.png" alt=""><img class="b" src="assets/${tile}-b.png" alt=""></span>`;
   const faceSrc = co => 'assets/faces/' + co.faces[co.mood || 'normal'];
+  // 나는 얼굴 대신 검은 동그라미 me
+  const faceInner = co => co.badge ? `<span class="badge">${co.badge}</span>` : `<img src="${faceSrc(co)}" alt="${co.name}">`;
   const faceHTML = co =>
-    `<span class="art bob face" style="--c:${co.color};--d:-${(Math.random() * 1.1).toFixed(2)}s"><img src="${faceSrc(co)}" alt="${co.name}"></span>`;
+    `<span class="art bob face" style="--c:${co.color};--d:-${(Math.random() * 1.1).toFixed(2)}s">${faceInner(co)}</span>`;
 
   // 표정 : 잠깐 바뀌었다가 평소 얼굴로
   function setMood(co, mood) {
@@ -386,7 +392,7 @@
   function refreshFaces() {
     for (const co of S.co) {
       const el = hqEls[co.id];
-      if (el) el.querySelector('img').src = faceSrc(co);
+      if (el && !co.badge) el.querySelector('img').src = faceSrc(co);
     }
     paintHUD();
   }
@@ -405,7 +411,7 @@
   }
 
   // 판 그리기
-  let hexEls = [], warnEls = [];
+  let hexEls = [], warnEls = [], segEls = [];
   const hqEls = {};
   function buildBoard() {
     layout();
@@ -426,6 +432,7 @@
     defs.innerHTML = '<filter id="gray"><feColorMatrix type="saturate" values="0"/></filter>';
     board.appendChild(defs);
     const lg = W * 0.62;
+    segEls = [];
     for (let i = 0; i < N; i++) {
       const [x, y] = center(i);
       const im = document.createElementNS(SVGNS, 'image');
@@ -438,6 +445,7 @@
       im.setAttribute('filter', 'url(#gray)');
       im.setAttribute('opacity', C.segments.opacity);
       board.appendChild(im);
+      segEls.push(im);
     }
     warnEls = [];
     for (let i = 0; i < N; i++) {
@@ -475,6 +483,9 @@
       }
       el.setAttribute('class', cls);
       el.style.fill = o >= 0 ? S.co[o].color : '';
+      // 빈칸은 회색 로고, 차지한 칸은 그 색으로 물든 로고
+      segEls[i].setAttribute('class', o >= 0 ? 'seg owned' : 'seg');
+      segEls[i].setAttribute('opacity', o >= 0 ? C.segments.ownedOpacity : C.segments.opacity);
       el.style.transitionDelay = '';
       el.style.animationDelay = '';
     }
@@ -534,7 +545,7 @@
     $('bGuardCost').textContent = th.size ? '흡수 위험 -' + guardCost() : $('bGuardCost').textContent;
     $('legend').innerHTML = S.co.map(co =>
       `<span class="${co.alive ? '' : 'dead'} ${co.id === ME ? 'me' : ''} ${th.has(co.id) ? 'threat' : ''}">` +
-      `<img src="${faceSrc(co)}" style="border-color:${co.color}" alt="">${co.name} <b>${co.alive ? sizeOf(co.id) : 0}</b></span>`
+      (co.badge ? `<span class="badge" style="border-color:${co.color}">${co.badge}</span>` : `<img src="${faceSrc(co)}" style="border-color:${co.color}" alt="">`) + `${co.name} <b>${co.alive ? sizeOf(co.id) : 0}</b></span>`
     ).join('');
   }
 

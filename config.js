@@ -17,10 +17,10 @@ window.CONFIG = {
     { key: 'tool',  name: '부품·SW',    tile: 'tile-tool',      speed: 0.6, price: 14, grade: 1.6, resist: '높음' }
   ],
 
-  // 창업가 4명 : 0번이 나, 1-3번이 AI. 얼굴은 Robot Rush·Bosses of Our World 그림.
+  // 창업가 4명 : 0번이 나(검은 동그라미 me), 1-3번이 AI(Bosses of Our World 얼굴).
   // 표정 : normal 평소, win 이득(인수·빼앗기), hurt 손해(빼앗김), lose 먹힘·폐업
   founders: [
-    { name: '나',     color: '#F28C28', faces: { normal: 'me/neutral.png', win: 'me/delight.png', hurt: 'me/frown.png', lose: 'me/tear.png' } },
+    { name: '나',     color: '#F28C28', badge: 'me' },
     { name: '머스크', color: '#0099FF', faces: { normal: 'musk/glance.webp', win: 'musk/smirk.webp', hurt: 'musk/shock.webp', lose: 'musk/scream.webp' } },
     { name: '베조스', color: '#FFD83D', faces: { normal: 'bezos/glance.webp', win: 'bezos/smirk.webp', hurt: 'bezos/shock.webp', lose: 'bezos/scream.webp' } },
     { name: '알트만', color: '#9B6BFF', faces: { normal: 'altman/glance.webp', win: 'altman/smirk.webp', hurt: 'altman/shock.webp', lose: 'altman/scream.webp' } }
@@ -34,7 +34,8 @@ window.CONFIG = {
   // 로봇 시장 : 칸마다 로봇 종류가 정해져 있고 회색 로고로 희미하게 표시. 이웃끼리 같은 종류가 뭉치게 seeds개 덩어리로 나눔.
   segments: {
     seeds: 9,
-    opacity: 0.22
+    opacity: 0.22,      // 빈칸 로고 (회색)
+    ownedOpacity: 0.5   // 차지한 칸 로고 (그 창업가 색으로 물듦)
   },
 
   // 접촉 판정
