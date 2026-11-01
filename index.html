@@ -391,7 +391,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.11.01-12';
+const BUILD_V = '2026.11.01-13';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -405,8 +405,11 @@ const M = {
     { ladder: ['found', 'seed', 'a', 'b', 'uni', 'ipo'], types: 3, spawn: [0.5, 0.4, 0.1] },
     { ladder: ['found', 'seed', 'a', 'b', 'c', 'uni', 'ipo'], types: 2, spawn: [0.4, 0.4, 0.2] }
   ],
-  dropRate: 0.7,             // 떨어뜨릴 때 내는 돈 = 몸값 × 이 비율
-  crisisAt: 350,           // 적자가 이만큼을 넘으면 재정 위기
+  // 돈 (스타트업처럼) : 떨어뜨리기 = 창업 비용, 합병해 단계가 오름 = 그 단계 투자 유치, 매 턴 판 위 회사들의 운영비
+  dropRate: 0.4,           // 창업 비용 = 그 회사 몸값 × 이 비율
+  raiseRate: 0.25,          // 투자 유치 = 새 단계 몸값 × 이 비율 (× 연쇄 횟수)
+  burnRate: 0.015,          // 운영비 = 판 위 회사 몸값 합 × 이 비율, 떨어뜨릴 때마다
+  crisisAt: 300,           // 적자가 이만큼을 넘으면 재정 위기
   startCash: 100,          // 자본금 : 레벨마다 이 돈으로 새로 시작 (상장 대금은 지갑이 아니라 누적 상장으로)
   // 단계 : 같은 로봇·같은 단계 회사 둘이 닿으면 그 레벨 사다리의 다음 단계. 유니콘 둘이 합쳐지면 상장(레벨 클리어).
   // 떨어뜨릴 때 그 회사 몸값만큼 돈이 나가고, 합병하면 (새 몸값 - 두 몸값) × 연쇄 횟수만큼 들어옴.
@@ -422,8 +425,8 @@ const M = {
   ipoMul: 5,               // 상장 대금 = 상장 단계 몸값 × 이 배수
   overflowSellN: 6,        // 경영 위기 때 한꺼번에 파는 회사 수 (비싼 것부터)
   dumpRate: 0.5,           // 경영 위기 매각 = 몸값의 이 비율
-  fireSaleRate: 0.3,
-  bridgeCost: 2,           // 브리지 투자 : 메운 적자의 이 배수만큼 누적 상장 점수를 지분으로 내줌       // 재정 위기 헐값 = 몸값의 이 비율
+  fireSaleRate: 0.3,       // 재정 위기 헐값 = 몸값의 이 비율
+  bridgeCost: 2,           // 브리지 투자 : 메운 적자의 이 배수만큼 누적 상장 점수를 지분으로 내줌
   types: [
     // hue·sat : 로봇 종류마다 색조 하나 (블루·에메랄드·마룬·보라). 단계가 오를수록 채도↑ 명도↓
     { key: 'arm',  name: '협동로봇',   tile: 'robot-cobot', grade: 1.0, hue: 214, sat: 1.0 },
@@ -630,7 +633,7 @@ const M = {
     if (topGone) r = 0;
     t.c = c; t.r = r;
     S.grid[r][c] = t;
-    const cost = Math.round(value(t) * M.dropRate);   // 떨어뜨리는 비용 : 몸값보다 조금 싸게 (합병으로 회생할 수 있게)
+    const cost = Math.round(value(t) * M.dropRate);   // 창업 비용
     S.cash -= cost;
     S.minCash = Math.min(S.minCash, S.cash);
     S.turn++;
@@ -702,7 +705,7 @@ const M = {
       if (toIpo) { t.stage = stage; await uniMerge(t, gone, fromName); }
       else if (!SIM) for (const g of gone) { g.el.style.translate = t.el.style.translate; g.el.classList.add('suck'); setTimeout(() => g.el.remove(), 160); }
       S.chain++;
-      const gain = (valueOf(stage, t.type) - (gone.length + 1) * oldValue) * S.chain;
+      const gain = Math.round(valueOf(stage, t.type) * M.raiseRate) * S.chain;   // 그 단계 투자 유치
       t.stage = stage;
       S.cash += gain;
       if (!SIM) {
@@ -807,7 +810,9 @@ const M = {
   }
 
   // 행동 뒤 : 적자가 한도를 넘으면 재정 위기, 모든 줄이 꽉 차면 경영 위기. 끝나면 판 저장.
+  const burnNow = () => Math.round(boardValue() * M.burnRate);
   async function settle() {
+    if (!S.over) S.cash -= burnNow();   // 운영비 : 판 위 회사가 클수록 많이 나감 (팔거나 합치면 줄어듦)
     paintHUD();
     if (S.over) return;
     if (S.cash < -M.crisisAt) await fireSale();
@@ -916,7 +921,7 @@ const M = {
     rollCash(S.cash);
     $('sCashBox').classList.toggle('red', S.cash < 0);
     $('sBoard').textContent = boardValue();
-    $('debt').textContent = S.cash < 0 ? `적자 ${S.cash} / 재정 위기 -${M.crisisAt}` : '';
+    $('debt').textContent = `운영비 -${burnNow()}/턴` + (S.cash < 0 ? ` · 적자 ${S.cash} / 재정 위기 -${M.crisisAt}` : '');
   }
   function floatAt(x, y, text, minus) {
     const f = document.createElement('div');
@@ -1438,7 +1443,7 @@ const M = {
     { t: '유니콘과 상장', v: () => `${demo('hum', 'a', 46)}<span>→</span>${demo('hum', 'uni', 54)}<span>×2 → 상장</span>`,
       p: '창업 → 시드투자 → 시리즈A → … → 유니콘으로 키워요. 유니콘 둘을 합치면 상장하고 레벨을 깨요. 레벨이 오르면 거쳐야 할 단계와 로봇 종류가 늘어요.' },
     { t: '돈', v: () => `<span style="color:#F0426E">-10</span>${demo('legs', 'found', 54)}<span style="color:#1FA36B">+5</span>`,
-      p: `회사를 떨어뜨릴 때는 몸값의 70%가 나가고, 합병하면 돈이 들어와요. 적자여도 계속할 수 있지만 너무 커지면 위험해요. 레벨마다 자본금 ${M.startCash}으로 새로 시작하고, 상장 대금은 누적 상장 점수가 돼요.` },
+      p: `떨어뜨리면 창업 비용이 나가고, 합병해 단계가 오르면 그 단계 투자금이 들어와요. 판 위 회사들은 떨어뜨릴 때마다 운영비를 써요. 크게 키워 놓고 합치지 못하면 돈이 말라 재정 위기가 와요. 레벨마다 자본금 ${M.startCash}으로 새로 시작하고, 상장 대금은 누적 상장 점수가 돼요.` },
     { t: '위기', v: () => `${demo('legs', 'b', 58, 'firesale')}<span style="color:#C9443A">헐값!</span>`,
       p: `적자가 ${M.crisisAt}을 넘으면 재정 위기, 판이 꽉 차면 경영 위기가 와요. 그러면 가장 비싼 회사부터 헐값에 팔려 나가요. 판을 넘치게 두지 마세요.` },
     { t: '실제 회사 카드', v: () => `<div style="width:64px;height:84px;border-radius:10px;border:3px solid #1E3F8F;background:#FBFCFF;display:flex;align-items:center;justify-content:center;font-size:30px">📜</div>`,
