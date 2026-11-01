@@ -391,7 +391,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.11.01-6';
+const BUILD_V = '2026.11.01-7';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -759,11 +759,11 @@ const M = {
     boxEl.classList.remove('ipoDim');
   }
   // ① 두 번째 유니콘이 생기는 합병 (곧 상장할 때만)
-  const uniMerge = (t, gone, from) => slowMerge(t, gone, `${from} + ${from} → 유니콘`, 700, 800, 650, () => { restyle(t); sfx.unicorn(); confetti(30); });
+  const uniMerge = (t, gone, from) => slowMerge(t, gone, `${from} + ${from} → 유니콘`, 500, 600, 450, () => { restyle(t); sfx.unicorn(); confetti(30); });
   // ② 유니콘 + 유니콘
   async function ipoMerge(t, gone) {
     sfx.unicorn();
-    await slowMerge(t, gone, `${t.type.name} 유니콘 + 유니콘`, 800, 900, 450);
+    await slowMerge(t, gone, `${t.type.name} 유니콘 + 유니콘`, 600, 650, 350);
   }
   // 상장 종 : 합쳐진 자리 위(판 안쪽으로)에서 흔들리며 땡땡땡
   function ringBell(x, y) {
