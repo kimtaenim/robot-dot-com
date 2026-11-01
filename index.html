@@ -316,7 +316,7 @@
   <div id="subtitle">로봇닷컴</div>
   <div id="stats">
     <div class="stat"><span>레벨</span><b id="sLevel">1</b></div>
-    <div class="stat"><span>턴</span><b id="sTurn">0</b></div>
+    <div class="stat score" id="sScoreBox"><span>상장</span><b id="sScore">0</b></div>
     <div class="stat cash" id="sCashBox"><span>지갑</span><b id="sCash">0</b></div>
     <div class="stat"><span>몸값</span><b id="sBoard">0</b></div>
     <button class="stat" id="bNew">처음부터</button>
@@ -391,7 +391,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.11.01-3';
+const BUILD_V = '2026.11.01-4';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -405,8 +405,8 @@ const M = {
     { ladder: ['found', 'seed', 'a', 'b', 'uni', 'ipo'], types: 3, spawn: [0.5, 0.4, 0.1] },
     { ladder: ['found', 'seed', 'a', 'b', 'c', 'uni', 'ipo'], types: 2, spawn: [0.4, 0.4, 0.2] }
   ],
-  crisisAt: 400,           // 적자가 이만큼을 넘으면 재정 위기
-  startCash: 100,
+  crisisAt: 200,           // 적자가 이만큼을 넘으면 재정 위기
+  startCash: 100,          // 자본금 : 레벨마다 이 돈으로 새로 시작 (상장 대금은 지갑이 아니라 누적 상장으로)
   // 단계 : 같은 로봇·같은 단계 회사 둘이 닿으면 그 레벨 사다리의 다음 단계. 유니콘 둘이 합쳐지면 상장(레벨 클리어).
   // 떨어뜨릴 때 그 회사 몸값만큼 돈이 나가고, 합병하면 (새 몸값 - 두 몸값) × 연쇄 횟수만큼 들어옴.
   stageDefs: {
@@ -448,7 +448,8 @@ const M = {
   const sleep = ms => SIM ? null : new Promise(r => setTimeout(r, ms));
 
   // grid[r][c] : r = 0이 맨 위. 화면에는 맨 위에 '들고 있는 줄'이 한 칸 더 있음.
-  const S = { grid: [], cash: 0, turn: 0, level: 1, types: [], seen: {}, cur: null, next: null, col: 2, busy: false, over: false, cleared: false, crisis: false, paused: false, dumps: 0, nextId: 1, ipos: 0, firstIpo: 0, minCash: 0, crises: 0, chain: 0 };
+  const S = { grid: [], cash: 0, turn: 0, level: 1, types: [], seen: {}, cur: null, next: null, col: 2, busy: false, over: false, cleared: false, crisis: false, paused: false, dumps: 0, nextId: 1, ipos: 0, firstIpo: 0, minCash: 0, crises: 0, chain: 0, score: 0,
+    best: (() => { try { return +localStorage.getItem('rdc.best') || 0; } catch (e) { return 0; } })() };
 
   // 판 크기 : 화면 폭을 꽉 채움
   let CELL = 56, GAP = 5, BW = 360;
@@ -775,7 +776,8 @@ const M = {
   }
   async function ipo(keep, gone) {
     const v = valueOf(S.top, keep.type) * M.ipoMul;
-    S.cash += v;
+    S.score = (S.score || 0) + v;   // 상장 대금은 누적 상장(점수)으로. 지갑은 다음 레벨에 자본금으로 새로
+    if (!SIM && S.score > S.best) { S.best = S.score; try { localStorage.setItem('rdc.best', String(S.best)); } catch (e) {} }
     S.ipos++;
     if (!S.firstIpo) S.firstIpo = S.turn;
     S.over = true; S.cleared = true;
@@ -787,14 +789,14 @@ const M = {
     floatAt(mx, my, '+' + v);
     banner(`${keep.type.name} 상장! +${v}`, true);
     shards(mx, my, S.top - 1, 40);
-    shake(); flashBox(); confetti(90); coins(mx, my, v);
+    shake(); flashBox(); confetti(90); coins(mx, my, v, 'sScoreBox');
     buzz([60, 40, 60, 40, 120]);
     ringBell(mx, my);
     paintHUD();
     const showClear = () => setTimeout(() => {
       $('overTitle').textContent = `레벨 ${S.level} 클리어!`;
       $('overScore').textContent = '+' + v;
-      $('overText').innerHTML = `${keep.type.name} 회사가 상장했어요 · ${S.turn}턴 · 위기 매각 ${S.dumps}번<br>지갑 ${S.cash} (다음 레벨로 이어져요)`;
+      $('overText').innerHTML = `${keep.type.name} 회사가 상장했어요 · ${S.turn}턴 · 위기 매각 ${S.dumps}번<br>누적 상장 ${S.score} (최고 ${S.best})<br>다음 레벨은 자본금 ${M.startCash}으로 새로 시작해요`;
       $('bRestart').textContent = `레벨 ${S.level + 1} 시작`;
       $('over').classList.remove('hide');
     }, 200);
@@ -816,7 +818,7 @@ const M = {
   function save() {
     if (SIM) return;
     const data = {
-      v: 1, level: S.level, cash: S.cash, turn: S.turn, dumps: S.dumps, ipos: S.ipos, cleared: S.cleared,
+      v: 1, level: S.level, cash: S.cash, score: S.score || 0, turn: S.turn, dumps: S.dumps, ipos: S.ipos, cleared: S.cleared,
       seen: S.seen, types: S.types.map(t => t.key), H, nextId: S.nextId,
       grid: tiles().map(t => [t.c, t.r, t.type.key, t.stage]), cur: pack(S.cur), next: pack(S.next)
     };
@@ -828,7 +830,7 @@ const M = {
     if (!d || d.v !== 1 || !d.cur) return false;
     const typeOf = k => M.types.find(t => t.key === k);
     if (d.types.some(k => !typeOf(k))) return false;
-    S.level = d.level; S.cash = d.cash; S.turn = d.turn; S.dumps = d.dumps || 0; S.ipos = d.ipos || 0;
+    S.level = d.level; S.cash = d.cash; S.score = d.score || 0; S.turn = d.turn; S.dumps = d.dumps || 0; S.ipos = d.ipos || 0;
     S.seen = d.seen; S.nextId = d.nextId || 1; S.minCash = S.cash;
     S.over = false; S.cleared = false; S.crisis = false; S.busy = false; S.chain = 0; S.col = Math.floor(C / 2);
     S.stages = LV().ladder.map(key => ({ key, ...M.stageDefs[key] }));
@@ -898,7 +900,7 @@ const M = {
   function paintHUD() {
     if (SIM) return;
     $('sLevel').textContent = S.level;
-    $('sTurn').textContent = S.turn;
+    $('sScore').textContent = S.score || 0;
     rollCash(S.cash);
     $('sCashBox').classList.toggle('red', S.cash < 0);
     $('sBoard').textContent = boardValue();
@@ -927,13 +929,14 @@ const M = {
 
   function newGame(sim) {
     SIM = !!sim;
-    S.cash = M.startCash; S.level = 1; S.ipos = 0; S.firstIpo = 0; S.minCash = M.startCash;
+    S.cash = M.startCash; S.score = 0; S.level = 1; S.ipos = 0; S.firstIpo = 0; S.minCash = M.startCash;
     S.seen = Object.fromEntries(M.types.map(t => [t.key, 0]));
     startLevel();
   }
   function startLevel() {
     if (SIM) H = M.rows; else layout(true);
     S.grid = Array.from({ length: H }, () => Array(C).fill(null));
+    S.cash = M.startCash; S.minCash = M.startCash;   // 레벨마다 자본금으로 새로
     S.turn = 0; S.over = false; S.cleared = false; S.dumps = 0; S.crisis = false; S.crises = 0; S.busy = false; S.paused = false; S.chain = 0;
     S.cur = null; S.next = null; S.col = Math.floor(C / 2);
     S.stages = LV().ladder.map(key => ({ key, ...M.stageDefs[key] }));
@@ -1004,9 +1007,9 @@ const M = {
   function nudge() { boxEl.classList.remove('nudge'); void boxEl.offsetWidth; boxEl.classList.add('nudge'); }
   function flashBox() { const f = $('boxFlash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); }
   // 동전 : 판 위 (x, y)에서 지갑으로 날아감. 도착하면 지갑이 통통 튐
-  function coins(x, y, amount) {
+  function coins(x, y, amount, to = 'sCashBox') {
     if (SIM || amount <= 0) return;
-    const br = boxEl.getBoundingClientRect(), wr = $('sCashBox').getBoundingClientRect();
+    const br = boxEl.getBoundingClientRect(), wr = $(to).getBoundingClientRect();
     const n = Math.min(10, 2 + Math.floor(amount / 25));
     for (let i = 0; i < n; i++) {
       const c = document.createElement('div');
@@ -1423,7 +1426,7 @@ const M = {
     { t: '유니콘과 상장', v: () => `${demo('hum', 'a', 46)}<span>→</span>${demo('hum', 'uni', 54)}<span>×2 → 상장</span>`,
       p: '창업 → 시드투자 → 시리즈A → … → 유니콘으로 키워요. 유니콘 둘을 합치면 상장하고 레벨을 깨요. 레벨이 오르면 거쳐야 할 단계와 로봇 종류가 늘어요.' },
     { t: '돈', v: () => `<span style="color:#F0426E">-10</span>${demo('legs', 'found', 54)}<span style="color:#1FA36B">+5</span>`,
-      p: '회사를 떨어뜨릴 때는 그 몸값만큼 돈이 나가고, 합병하면 돈이 들어와요. 적자여도 계속할 수 있지만 너무 커지면 위험해요.' },
+      p: `회사를 떨어뜨릴 때는 그 몸값만큼 돈이 나가고, 합병하면 돈이 들어와요. 적자여도 계속할 수 있지만 너무 커지면 위험해요. 레벨마다 자본금 ${M.startCash}으로 새로 시작하고, 상장 대금은 누적 상장 점수가 돼요.` },
     { t: '위기', v: () => `${demo('legs', 'b', 58, 'firesale')}<span style="color:#C9443A">헐값!</span>`,
       p: `적자가 ${M.crisisAt}을 넘으면 재정 위기, 판이 꽉 차면 경영 위기가 와요. 그러면 가장 비싼 회사부터 헐값에 팔려 나가요. 판을 넘치게 두지 마세요.` },
     { t: '실제 회사 카드', v: () => `<div style="width:64px;height:84px;border-radius:10px;border:3px solid #1E3F8F;background:#FBFCFF;display:flex;align-items:center;justify-content:center;font-size:30px">📜</div>`,
