@@ -279,7 +279,7 @@
   /* 상장 직전 : 판을 어둡게, 두 유니콘만 빛나고 천천히 끌려와 합쳐짐 */
   #box.ipoDim .ball:not(.star) { filter: brightness(.4) saturate(.6); transition: filter .3s; }
   .ball.star { z-index: 7; scale: 1.12; transition: scale .3s, translate .13s; filter: drop-shadow(0 0 10px #FFE27A) drop-shadow(0 0 4px #fff); }
-  .ball.star.pull { transition: translate .75s cubic-bezier(.55, 0, .75, .4), scale .75s ease-in; scale: .8; }
+  .ball.star.pull { transition: translate 1.4s cubic-bezier(.45, 0, .7, .5), scale 1.4s ease-in; scale: .85; }
   /* 상장 종 : 거래소 개장 종처럼 땡땡땡 (그림은 SVG로 직접) */
   #bell { position: fixed; z-index: 22; width: 140px; height: 146px; pointer-events: none; transform: translate(-50%, -50%) scale(.2); opacity: 0; }
   #bell.on { animation: bellIn 1.9s ease-out forwards; }
@@ -391,7 +391,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.11.01-1';
+const BUILD_V = '2026.11.01-2';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -668,7 +668,8 @@ const M = {
       if (extra) { gone.push(extra); extra = null; }
       if (!gone.length) continue;
       for (const g of gone) if (S.grid[g.r][g.c] === g) S.grid[g.r][g.c] = null;
-      const stage = Math.min(S.top, t.stage + gone.length);
+      // 상장은 유니콘 + 유니콘일 때만 : 여럿이 한꺼번에 합쳐져도 유니콘에서 멈춤 (유니콘 둘이 만나는 장면이 늘 보이게)
+      const stage = Math.min(t.stage === S.top - 1 ? S.top : S.top - 1, t.stage + gone.length);
       if (stage === S.top) {
         S.grid[t.r][t.c] = null;
         if (!SIM) await ipoMerge(t, gone);
@@ -725,13 +726,13 @@ const M = {
     for (const o of all) o.el.classList.add('star');
     banner(`${t.type.name} 유니콘 + 유니콘`, true);
     sfx.unicorn(); buzz(30);
-    await sleep(900);
+    await sleep(1300);
     for (const g of gone) { g.el.classList.add('pull'); g.el.style.translate = t.el.style.translate; }
-    await sleep(750);
+    await sleep(1400);
     for (const g of gone) g.el.remove();
     t.el.classList.remove('land'); void t.el.offsetWidth; t.el.classList.add('land');
     flashBox(); shake(); buzz([40, 30, 80]);
-    await sleep(380);
+    await sleep(800);
     boxEl.classList.remove('ipoDim');
   }
   // 상장 종 : 합쳐진 자리 위(판 안쪽으로)에서 흔들리며 땡땡땡
