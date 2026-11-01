@@ -279,7 +279,7 @@
   /* 상장 직전 : 판을 어둡게, 두 유니콘만 빛나고 천천히 끌려와 합쳐짐 */
   #box.ipoDim .ball:not(.star) { filter: brightness(.4) saturate(.6); transition: filter .3s; }
   .ball.star { z-index: 7; scale: 1.12; transition: scale .3s, translate .13s; filter: drop-shadow(0 0 10px #FFE27A) drop-shadow(0 0 4px #fff); }
-  .ball.star.pull { transition: translate 1.4s cubic-bezier(.45, 0, .7, .5), scale 1.4s ease-in; scale: .85; }
+  .ball.star.pull { transition: translate var(--pull, .9s) cubic-bezier(.45, 0, .7, .5), scale var(--pull, .9s) ease-in; scale: .85; }
   /* 상장 종 : 거래소 개장 종처럼 땡땡땡 (그림은 SVG로 직접) */
   #bell { position: fixed; z-index: 22; width: 140px; height: 146px; pointer-events: none; transform: translate(-50%, -50%) scale(.2); opacity: 0; }
   #bell.on { animation: bellIn 1.9s ease-out forwards; }
@@ -391,7 +391,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.11.01-2';
+const BUILD_V = '2026.11.01-3';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -659,6 +659,22 @@ const M = {
   // 합병 : 움직인 회사(t)가 닿은 같은 회사를 전부 한꺼번에 흡수하고 제자리에 남음.
   //   하나와 닿으면 한 단계, 둘이면 두 단계, 셋이면 세 단계 위로. 위 칸이 내려와 또 닿으면 연쇄(수입 배수).
   //   extra : 꽉 찬 줄 위로 떨어뜨렸을 때 흡수되는 맨 위 회사 (이미 자리를 내줌)
+  // 이 합병으로 유니콘이 된 t가 (빈자리로 내려온 뒤) 같은 유니콘과 닿는지 미리 봄 = 곧 상장
+  function ipoNext(t, stage) {
+    const g = S.grid.map(row => row.slice());
+    let tr = t.r;
+    for (let c = 0; c < C; c++) {
+      let w = H - 1;
+      for (let r = H - 1; r >= 0; r--) {
+        const o = g[r][c];
+        if (!o) continue;
+        if (r !== w) { g[w][c] = o; g[r][c] = null; }
+        if (o === t) tr = w;
+        w--;
+      }
+    }
+    return NBR(tr, t.c).some(([r, c]) => r >= 0 && r < H && c >= 0 && c < C && g[r][c] && g[r][c] !== t && g[r][c].type === t.type && g[r][c].stage === stage);
+  }
   async function resolve(active, extra) {
     while (active.length) {
       const t = active.shift();
@@ -676,9 +692,13 @@ const M = {
         await ipo(t, t);
         return;
       }
-      if (!SIM) for (const g of gone) { g.el.style.translate = t.el.style.translate; g.el.classList.add('suck'); setTimeout(() => g.el.remove(), 160); }
+      // 이 합병으로 유니콘이 되고 바로 옆에 같은 유니콘이 있으면 = 곧 상장 : 이 합병을 천천히 (① 컷)
+      const toIpo = !SIM && stage === S.top - 1 && ipoNext(t, stage);
+      const fromName = S.stages[t.stage].name, oldValue = value(t);
+      if (toIpo) { t.stage = stage; await uniMerge(t, gone, fromName); }
+      else if (!SIM) for (const g of gone) { g.el.style.translate = t.el.style.translate; g.el.classList.add('suck'); setTimeout(() => g.el.remove(), 160); }
       S.chain++;
-      const gain = (valueOf(stage, t.type) - (gone.length + 1) * value(t)) * S.chain;
+      const gain = (valueOf(stage, t.type) - (gone.length + 1) * oldValue) * S.chain;
       t.stage = stage;
       S.cash += gain;
       if (!SIM) {
@@ -694,7 +714,7 @@ const M = {
         if (S.chain >= 2) { chainText(mx, my - CELL * 0.4, S.chain); shake(); flashBox(); buzz([25, 30, 25 + S.chain * 10]); }
         else if (gone.length >= 2) { shake(); flashBox(); buzz([30, 30, 60]); }
         else { nudge(); buzz(stage >= S.top - 1 ? [40, 40, 80] : 18); }
-        if (stage === S.top - 1) { sfx.unicorn(); confetti(40); }
+        if (stage === S.top - 1 && !toIpo) { sfx.unicorn(); confetti(40); }
         paintHUD();
         await sleep(130);
       }
@@ -719,21 +739,30 @@ const M = {
     return moved;
   }
 
-  // 유니콘끼리 합쳐지는 순간을 천천히 : 판을 어둡게 하고 두 유니콘을 빛낸 뒤, 천천히 끌려와 하나로 (어떻게 깼는지 보이게)
-  async function ipoMerge(t, gone) {
-    const all = [t, ...gone];
+  // 상장까지 세 컷 : ① 내가 만든 합병(두 번째 유니콘이 생김) ② 유니콘 + 유니콘 ③ 종.
+  //   ①②는 판을 어둡게 하고 합쳐지는 회사만 빛낸 뒤 천천히 끌려와 하나로 (어떻게 깼는지 보이게)
+  async function slowMerge(t, gone, text, look, pull, hold, onJoin) {
     boxEl.classList.add('ipoDim');
-    for (const o of all) o.el.classList.add('star');
-    banner(`${t.type.name} 유니콘 + 유니콘`, true);
-    sfx.unicorn(); buzz(30);
-    await sleep(1300);
+    for (const o of [t, ...gone]) { o.el.classList.remove('pull'); o.el.classList.add('star'); o.el.style.setProperty('--pull', pull + 'ms'); }
+    banner(text, true);
+    buzz(30);
+    await sleep(look);
     for (const g of gone) { g.el.classList.add('pull'); g.el.style.translate = t.el.style.translate; }
-    await sleep(1400);
+    await sleep(pull);
     for (const g of gone) g.el.remove();
+    if (onJoin) onJoin();
     t.el.classList.remove('land'); void t.el.offsetWidth; t.el.classList.add('land');
     flashBox(); shake(); buzz([40, 30, 80]);
-    await sleep(800);
+    await sleep(hold);
+    t.el.classList.remove('star');
     boxEl.classList.remove('ipoDim');
+  }
+  // ① 두 번째 유니콘이 생기는 합병 (곧 상장할 때만)
+  const uniMerge = (t, gone, from) => slowMerge(t, gone, `${from} + ${from} → 유니콘`, 700, 800, 650, () => { restyle(t); sfx.unicorn(); confetti(30); });
+  // ② 유니콘 + 유니콘
+  async function ipoMerge(t, gone) {
+    sfx.unicorn();
+    await slowMerge(t, gone, `${t.type.name} 유니콘 + 유니콘`, 800, 900, 450);
   }
   // 상장 종 : 합쳐진 자리 위(판 안쪽으로)에서 흔들리며 땡땡땡
   function ringBell(x, y) {
