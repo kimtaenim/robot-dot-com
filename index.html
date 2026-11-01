@@ -391,7 +391,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.11.01-5';
+const BUILD_V = '2026.11.01-6';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -1178,9 +1178,9 @@ const M = {
   const EVENT_NAME = { found: '창업', grow: '성장', market: '시장', steal: '빼앗김', merge: '합병', sell: '매각', ipo: '상장', crash: '재정 위기', close: '사업 정리', regulate: '규제' };
   // 게임 순간마다 쓰는 카드 묶음 : 모든 카드가 다 나오게
   const MOMENT = {
-    start: ['found', 'market', 'regulate'],                 // 레벨 시작
-    end: ['ipo', 'grow'],                                   // 레벨 끝 : 상장
-    crisis: ['crash', 'close', 'sell', 'merge', 'steal']    // 위기 : 회사가 팔려 나갈 때
+    start: ['found', 'market', 'regulate', 'steal'],        // 레벨 시작 : 창업·시장·규제·경쟁
+    end: ['ipo', 'grow', 'merge', 'sell'],                  // 레벨 끝 : 상장·성장·투자·인수
+    crisis: ['crash', 'close']                              // 위기 : 위기·사업 정리 이야기만
   };
   const GROUP = {
     cobot: { name: '협동로봇', icon: 'robot-cobot' },
