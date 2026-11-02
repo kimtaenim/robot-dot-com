@@ -273,11 +273,6 @@
   #actions button { flex: 1; height: 46px; border: none; border-radius: 10px; background: var(--panel); color: var(--fg); font-family: 'Sunflower', sans-serif; font-weight: 700; font-size: 15px; }
   /* 재정 위기 : 헐값에 팔려 나가는 공 */
   .ball.firesale { filter: brightness(1.3) drop-shadow(0 0 10px #FF5A4E); scale: 1.12; transition: scale .25s; z-index: 6; }
-  /* 운영비 : 지갑이 붉게 깜빡이고 띠가 뜸. 직전 턴엔 안내가 깜빡임 */
-  #banner.bill { background: linear-gradient(135deg, #6B4A1E, #A8742A); }
-  .stat.cash.bill { animation: billFlash .7s ease-out; }
-  @keyframes billFlash { 0% { background: #C9443A; scale: 1.15; } 100% { background: var(--panel); scale: 1; } }
-  #debt.soon { color: #FFB86B; animation: urgent .5s ease-in-out infinite alternate; }
   #banner.crisis { background: linear-gradient(135deg, #8E2A24, #C9443A); }
   #debt { position: absolute; right: 8px; top: 4px; font-size: 11px; color: #FF8A80; font-family: 'Sunflower', sans-serif; font-weight: 700; pointer-events: none; z-index: 4; }
 
@@ -396,7 +391,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.11.01-14';
+const BUILD_V = '2026.11.02-1';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -410,11 +405,9 @@ const M = {
     { ladder: ['found', 'seed', 'a', 'b', 'uni', 'ipo'], types: 3, spawn: [0.5, 0.4, 0.1] },
     { ladder: ['found', 'seed', 'a', 'b', 'c', 'uni', 'ipo'], types: 2, spawn: [0.4, 0.4, 0.2] }
   ],
-  // 돈 (스타트업처럼) : 떨어뜨리기 = 창업 비용, 합병해 단계가 오름 = 그 단계 투자 유치, 매 턴 판 위 회사들의 운영비
+  // 돈 (스타트업처럼) : 떨어뜨리기 = 창업 비용, 합병해 단계가 오름 = 그 단계 투자 유치
   dropRate: 0.4,           // 창업 비용 = 그 회사 몸값 × 이 비율
   raiseRate: 0.25,          // 투자 유치 = 새 단계 몸값 × 이 비율 (× 연쇄 횟수)
-  burnRate: 0.015,         // 운영비 = 판 위 회사 몸값 합 × 이 비율 × burnEvery
-  burnEvery: 5,            // 운영비는 이 턴마다 한꺼번에 빠져나감 (눈에 띄게)
   crisisAt: 300,           // 적자가 이만큼을 넘으면 재정 위기
   startCash: 100,          // 자본금 : 레벨마다 이 돈으로 새로 시작 (상장 대금은 지갑이 아니라 누적 상장으로)
   // 단계 : 같은 로봇·같은 단계 회사 둘이 닿으면 그 레벨 사다리의 다음 단계. 유니콘 둘이 합쳐지면 상장(레벨 클리어).
@@ -816,23 +809,7 @@ const M = {
   }
 
   // 행동 뒤 : 적자가 한도를 넘으면 재정 위기, 모든 줄이 꽉 차면 경영 위기. 끝나면 판 저장.
-  // 운영비 : burnEvery 턴마다 판 위 회사 몸값에 비례해 한꺼번에 빠져나감 (팔거나 합치면 줄어듦)
-  const burnNow = () => Math.round(boardValue() * M.burnRate * M.burnEvery);
-  const burnIn = () => M.burnEvery - (S.turn % M.burnEvery);
-  async function payBurn() {
-    const v = burnNow();
-    if (!v) return;
-    S.cash -= v;
-    if (SIM) return;
-    const box = $('sCashBox');
-    box.classList.remove('bill'); void box.offsetWidth; box.classList.add('bill');
-    banner(`운영비 지출 -${v}`, 'bill');
-    sfx.bill(); buzz([30, 40, 30]); nudge();
-    paintHUD();
-    await sleep(700);
-  }
   async function settle() {
-    if (!S.over && S.turn > 0 && S.turn % M.burnEvery === 0) await payBurn();
     paintHUD();
     if (S.over) return;
     if (S.cash < -M.crisisAt) await fireSale();
@@ -941,8 +918,7 @@ const M = {
     rollCash(S.cash);
     $('sCashBox').classList.toggle('red', S.cash < 0);
     $('sBoard').textContent = boardValue();
-    $('debt').textContent = `운영비 -${burnNow()} · ${burnIn()}턴 뒤` + (S.cash < 0 ? ` · 적자 ${S.cash} / 재정 위기 -${M.crisisAt}` : '');
-    $('debt').classList.toggle('soon', burnIn() === 1);
+    $('debt').textContent = S.cash < 0 ? `적자 ${S.cash} / 재정 위기 -${M.crisisAt}` : '';
   }
   function floatAt(x, y, text, minus) {
     const f = document.createElement('div');
@@ -960,7 +936,6 @@ const M = {
     b.textContent = text;
     b.classList.toggle('ipo', style === true);
     b.classList.toggle('crisis', style === 'crisis');
-    b.classList.toggle('bill', style === 'bill');
     b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
     clearTimeout(bannerT);
     bannerT = setTimeout(() => b.classList.remove('show'), 1900);
@@ -1206,8 +1181,6 @@ const M = {
       sell: () => tone(400, 0.15, 'sawtooth', 0.07, 200),
       crisis: () => [392, 330, 262, 196].forEach((f, i) => tone(f, i === 3 ? 0.7 : 0.22, 'sawtooth', 0.09, null, 0.18 * i)),
       card: () => tone(1320, 0.12, 'sine', 0.1, 1760),
-      // 운영비 : 계산대 '철컥' 뒤 내려가는 두 음
-      bill: () => { tone(1800, 0.04, 'square', 0.05); tone(523, 0.14, 'triangle', 0.14, null, 0.06); tone(392, 0.22, 'triangle', 0.14, null, 0.2); },
       // 종 : 맑은 배음(1, 2, 2.76, 5.4배)이 길게 울리는 땡, 네 번
       bell: () => { for (let k = 0; k < 4; k++) [[1, .22, 1.6], [2, .1, 1.1], [2.76, .08, .8], [5.4, .04, .4]].forEach(([m, v, d]) => tone(880 * m, d, 'sine', v, null, 0.36 * k)); }
     };
@@ -1467,7 +1440,7 @@ const M = {
     { t: '유니콘과 상장', v: () => `${demo('hum', 'a', 46)}<span>→</span>${demo('hum', 'uni', 54)}<span>×2 → 상장</span>`,
       p: '창업 → 시드투자 → 시리즈A → … → 유니콘으로 키워요. 유니콘 둘을 합치면 상장하고 레벨을 깨요. 레벨이 오르면 거쳐야 할 단계와 로봇 종류가 늘어요.' },
     { t: '돈', v: () => `<span style="color:#F0426E">-10</span>${demo('legs', 'found', 54)}<span style="color:#1FA36B">+5</span>`,
-      p: `떨어뜨리면 창업 비용이 나가고, 합병해 단계가 오르면 그 단계 투자금이 들어와요. 판 위 회사들은 떨어뜨릴 때마다 운영비를 써요. 크게 키워 놓고 합치지 못하면 돈이 말라 재정 위기가 와요. 레벨마다 자본금 ${M.startCash}으로 새로 시작하고, 상장 대금은 누적 상장 점수가 돼요.` },
+      p: `떨어뜨리면 창업 비용이 나가고, 합병해 단계가 오르면 그 단계 투자금이 들어와요. 합치지 못한 회사가 쌓이면 돈이 말라 재정 위기가 와요. 레벨마다 자본금 ${M.startCash}으로 새로 시작하고, 상장 대금은 누적 상장 점수가 돼요.` },
     { t: '위기', v: () => `${demo('legs', 'b', 58, 'firesale')}<span style="color:#C9443A">헐값!</span>`,
       p: `적자가 ${M.crisisAt}을 넘으면 재정 위기, 판이 꽉 차면 경영 위기가 와요. 그러면 가장 비싼 회사부터 헐값에 팔려 나가요. 판을 넘치게 두지 마세요.` },
     { t: '실제 회사 카드', v: () => `<div style="width:64px;height:84px;border-radius:10px;border:3px solid #1E3F8F;background:#FBFCFF;display:flex;align-items:center;justify-content:center;font-size:30px">📜</div>`,
