@@ -391,7 +391,7 @@
 
 <script>
 // 빌드 번호 : 올릴 때마다 바꾸면 열려 있던 폰도 새 버전으로 새로고침됨
-const BUILD_V = '2026.11.02-1';
+const BUILD_V = '2026.11.02-2';
 // 수치표
 const M = {
   cols: 4,                 // 세로 줄 수 (헥사, 홀수 줄은 반 칸 아래로 엇갈림, ?c=)
@@ -425,7 +425,6 @@ const M = {
   overflowSellN: 6,        // 경영 위기 때 한꺼번에 파는 회사 수 (비싼 것부터)
   dumpRate: 0.5,           // 경영 위기 매각 = 몸값의 이 비율
   fireSaleRate: 0.3,       // 재정 위기 헐값 = 몸값의 이 비율
-  bridgeCost: 2,           // 브리지 투자 : 메운 적자의 이 배수만큼 누적 상장 점수를 지분으로 내줌
   types: [
     // hue·sat : 로봇 종류마다 색조 하나 (블루·에메랄드·마룬·보라). 단계가 오를수록 채도↑ 명도↓
     { key: 'arm',  name: '협동로봇',   tile: 'robot-cobot', grade: 1.0, hue: 214, sat: 1.0 },
@@ -875,7 +874,7 @@ const M = {
     let firstSold = null;   // 가장 먼저 팔려 나간 회사 : 위기 카드의 로봇 업종
     for (let t = pickNext(); t; t = pickNext()) {
       firstSold = firstSold || t.type;
-      if (!SIM) { t.el.classList.add('firesale'); await sleep(450); }
+      if (!SIM) { t.el.classList.add('firesale'); await sleep(320); }
       sellTile(t, rate, label);
       if (!SIM) await sleep(200);
       moved.push(...await gravity());   // 위 칸이 내려와야 자리가 났는지 알 수 있음
@@ -897,18 +896,14 @@ const M = {
     return tiles().sort((a, b) => value(b) - value(a))[0] || null;
   }, M.dumpRate, '정리'); };
 
-  // 재정 위기 : 몸값 높은 회사부터 헐값에, 지갑이 0 이상이 될 때까지
-  const fireSale = () => crisisFlow('재정 위기! 핵심 자산을 헐값에 팝니다', () => {
-    if (S.cash >= 0) return null;
+  // 재정 위기 : 채권단이 가장 비싼 회사 하나를 가져가고 빚을 정리 (한 번에 끝나는 큰 손해, 악순환 없음)
+  const fireSale = () => { let n = 0; return crisisFlow('재정 위기! 채권단이 가장 비싼 회사를 가져가고 빚을 정리합니다', () => {
+    if (n >= 1) return null;
+    n++;
     return tiles().sort((a, b) => value(b) - value(a))[0] || null;
   }, M.fireSaleRate, '헐값', () => {
-    // 다 팔아도 적자면 브리지 투자 : 적자를 메우는 대신 지분을 내줘 누적 상장 점수가 깎임 (공짜 돈 없이 적자 늪에서 나오게)
-    if (S.cash >= 0) return;
-    const v = -S.cash, cut = Math.min(S.score || 0, v * M.bridgeCost);
-    S.cash = 0;
-    S.score = (S.score || 0) - cut;
-    if (!SIM) { banner(cut ? `브리지 투자로 적자 ${v}을 메우고 지분을 내줬어요 (상장 -${cut})` : `브리지 투자로 적자 ${v}을 메웠어요`, 'crisis'); paintHUD(); }
-  });
+    if (S.cash < 0) { S.cash = 0; if (!SIM) paintHUD(); }   // 남은 빚은 그 회사와 맞바꿔 정리
+  }); };
 
   const boardValue = () => tiles().reduce((v, t) => v + value(t), 0);
   function paintHUD() {
@@ -1442,7 +1437,7 @@ const M = {
     { t: '돈', v: () => `<span style="color:#F0426E">-10</span>${demo('legs', 'found', 54)}<span style="color:#1FA36B">+5</span>`,
       p: `떨어뜨리면 창업 비용이 나가고, 합병해 단계가 오르면 그 단계 투자금이 들어와요. 합치지 못한 회사가 쌓이면 돈이 말라 재정 위기가 와요. 레벨마다 자본금 ${M.startCash}으로 새로 시작하고, 상장 대금은 누적 상장 점수가 돼요.` },
     { t: '위기', v: () => `${demo('legs', 'b', 58, 'firesale')}<span style="color:#C9443A">헐값!</span>`,
-      p: `적자가 ${M.crisisAt}을 넘으면 재정 위기, 판이 꽉 차면 경영 위기가 와요. 그러면 가장 비싼 회사부터 헐값에 팔려 나가요. 판을 넘치게 두지 마세요.` },
+      p: `적자가 ${M.crisisAt}을 넘으면 재정 위기, 판이 꽉 차면 경영 위기가 와요. 재정 위기에는 채권단이 가장 비싼 회사를 가져가고 빚을 정리해 줘요. 경영 위기에는 비싼 회사 여섯 개가 반값에 팔려 나가요.` },
     { t: '실제 회사 카드', v: () => `<div style="width:64px;height:84px;border-radius:10px;border:3px solid #1E3F8F;background:#FBFCFF;display:flex;align-items:center;justify-content:center;font-size:30px">📜</div>`,
       p: '레벨을 시작하고 끝낼 때, 위기가 올 때 실제 로봇 회사의 이야기 카드를 받아요. 모은 카드는 아래 "도감"에서 다시 볼 수 있어요.' }
   ];
